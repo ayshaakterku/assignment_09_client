@@ -21,9 +21,9 @@ type Role = "tutor" | "guardian" | "admin"
 
 // Explicit colors so the form stays readable on the white card
 // even if your shadcn theme tokens are light/dark-mode values.
-const labelClass = "text-xs font-semibold text-zinc-800";
+const labelClass = "text-xs font-semibold text-foreground";
 const inputClass =
-  "h-10 rounded-md border border-zinc-300 bg-white text-sm text-zinc-900 shadow-none placeholder:text-zinc-400 focus-visible:border-fuchsia-600 focus-visible:ring-2 focus-visible:ring-fuchsia-100";
+  "h-10 rounded-md border border-input bg-background text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-fuchsia-600 focus-visible:ring-2 focus-visible:ring-fuchsia-500/20 dark:bg-input/30";
 
 const roles: { value: Role; label: string; icon: string }[] = [
   {
@@ -138,21 +138,21 @@ function SignUpPage() {
     <div>
       {/* top row */}
       <div className="flex items-center justify-between">
-        <span className="rounded-full bg-fuchsia-50 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-widest text-fuchsia-900">
+        <span className="rounded-full bg-fuchsia-50 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-widest text-fuchsia-900 dark:bg-fuchsia-950/50 dark:text-fuchsia-200">
           Register
         </span>
-        <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-600">
-          <svg className="h-3.5 w-3.5 text-fuchsia-700" fill="currentColor" viewBox="0 0 24 24">
+        <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+          <svg className="h-3.5 w-3.5 text-fuchsia-700 dark:text-fuchsia-300" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6l-4-4 1.4-1.4 2.6 2.6 5-5 1.4 1.4-6.4 6.4z" />
           </svg>
           Quick setup
         </span>
       </div>
 
-      <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-zinc-900">
+      <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">
         Create your account
       </h1>
-      <p className="mt-1 text-xs text-zinc-600">
+      <p className="mt-1 text-xs text-muted-foreground">
         Select your role and sign up with Google or email.
       </p>
 
@@ -171,8 +171,8 @@ function SignUpPage() {
                   aria-pressed={active}
                   className={`relative flex flex-col items-center gap-2 rounded-xl border-2 px-2 py-3 transition ${
                     active
-                      ? "border-fuchsia-700 bg-fuchsia-50 shadow-sm"
-                      : "border-zinc-200 bg-white hover:border-fuchsia-300"
+                      ? "border-fuchsia-700 bg-fuchsia-50 shadow-sm dark:border-fuchsia-400 dark:bg-fuchsia-950/40"
+                      : "border-border bg-card hover:border-fuchsia-300 dark:hover:border-fuchsia-500"
                   }`}
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-900 to-fuchsia-600 text-white">
@@ -180,9 +180,9 @@ function SignUpPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d={r.icon} />
                     </svg>
                   </span>
-                  <span className="text-sm font-semibold text-zinc-900">{r.label}</span>
+                  <span className="text-sm font-semibold text-foreground">{r.label}</span>
                   {active && (
-                    <svg className="absolute right-1.5 top-1.5 h-4 w-4 text-teal-600" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute right-1.5 top-1.5 h-4 w-4 text-teal-600 dark:text-teal-300" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6l-4-4 1.4-1.4 2.6 2.6 5-5 1.4 1.4-6.4 6.4z" />
                     </svg>
                   )}
@@ -197,7 +197,7 @@ function SignUpPage() {
               variant="outline"
               type="button"
               disabled={googleLoading}
-              className="h-10 border-zinc-300 bg-white font-medium text-zinc-800 shadow-none hover:bg-zinc-50 hover:text-zinc-900"
+              className="h-10 border-input bg-background font-medium text-foreground shadow-none hover:bg-muted hover:text-foreground"
             >
               <Image
                 src="/google.png"
@@ -209,7 +209,7 @@ function SignUpPage() {
             </Button>
           </Field>
 
-          <FieldSeparator className="text-zinc-500 *:data-[slot=field-separator-content]:bg-white *:data-[slot=field-separator-content]:text-zinc-500">
+          <FieldSeparator className="text-muted-foreground *:data-[slot=field-separator-content]:bg-card *:data-[slot=field-separator-content]:text-muted-foreground">
             Or continue with
           </FieldSeparator>
 
@@ -297,13 +297,13 @@ function SignUpPage() {
 
             <FieldDescription className="text-center">
               Have an account?{" "}
-              <Link href="/login" className="font-bold text-blue-900 hover:underline">
+              <Link href="/sign-in" className="font-bold text-fuchsia-700 hover:underline dark:text-fuchsia-300">
                 Login
               </Link>
             </FieldDescription>
             <FieldDescription className="text-center">
               Forgot your password?{" "}
-              <Link href="/forgot-password" className="font-bold text-blue-900 hover:underline">
+              <Link href="/forgot-password" className="font-bold text-fuchsia-700 hover:underline dark:text-fuchsia-300">
                 Reset it
               </Link>
             </FieldDescription>

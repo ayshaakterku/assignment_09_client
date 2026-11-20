@@ -12,7 +12,7 @@ const tips = [
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-[calc(100vh-72px)] items-center justify-center bg-white px-4 py-6">
+    <main className="flex min-h-[calc(100vh-72px)] items-center justify-center bg-background px-4 py-6 text-foreground">
       <div className="grid w-full max-w-5xl grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Left: info card (hidden below lg) */}
         <aside className="relative hidden flex-col overflow-hidden rounded-3xl bg-gradient-to-br from-sky-900 via-blue-950 to-teal-600 p-5 text-white shadow-2xl shadow-blue-950/25 lg:flex">
@@ -72,7 +72,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </aside>
 
         {/* Right: form card */}
-        <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-xl shadow-zinc-200/70 sm:p-6">
+        <section className="rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-xl shadow-zinc-200/70 sm:p-6 dark:shadow-black/40">
           {children}
         </section>
       </div>
