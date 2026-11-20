@@ -1,0 +1,323 @@
+'use client'
+
+import { Button } from "@/components/ui/button"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { authClient } from "@/lib/auth-client"
+import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { toast } from "react-toastify"
+// shadcn toast (<Toaster /> must be in the root layout)
+
+type Role = "tutor" | "guardian" | "admin"
+
+// Explicit colors so the form stays readable on the white card
+// even if your shadcn theme tokens are light/dark-mode values.
+const labelClass = "text-xs font-semibold text-zinc-800";
+const inputClass =
+  "h-10 rounded-md border border-zinc-300 bg-white text-sm text-zinc-900 shadow-none placeholder:text-zinc-400 focus-visible:border-fuchsia-600 focus-visible:ring-2 focus-visible:ring-fuchsia-100";
+
+const roles: { value: Role; label: string; icon: string }[] = [
+  {
+    value: "tutor",
+    label: "Tutor",
+    icon: "M12 14l9-5-9-5-9 5 9 5zm0 0v6m-6-8.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5",
+  },
+  {
+    value: "guardian",
+    label: "Guardian",
+    icon: "M17 20h5v-2a4 4 0 00-5-3.9M9 12a4 4 0 100-8 4 4 0 000 8zm-7 8v-1a5 5 0 015-5h4a5 5 0 015 5v1H2z",
+  },
+  {
+    value: "admin",
+    label: "Admin",
+    icon: "M12 3l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V6l8-3z",
+  },
+]
+
+function SignUpPage() {
+  const router = useRouter();
+
+  const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+  const [signupLoading, setSignupLoading] = useState<boolean>(false);
+  const [role, setRole] = useState<Role>("tutor");
+
+  const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.currentTarget);
+
+    const user = Object.fromEntries(formData.entries()) as {
+      name: string,
+      email: string,
+      image: string,
+      password: string,
+      confirmPassword: string,
+      role: Role
+    };
+
+    // Password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
+
+    if (!passwordRegex.test(user.password)) {
+      toast.error(
+        "Password must be at least 6 characters and contain uppercase and lowercase letters."
+      );
+      return;
+    }
+
+    // Confirm password validation
+    if (user.password !== user.confirmPassword) {
+      toast.error("Passwords do not match!");
+      return;
+    }
+
+    setSignupLoading(true);
+
+    try {
+      const { data, error } = await authClient.signUp.email({
+        name: user.name,
+        email: user.email,
+        image: user.image || "",
+        password: user.password,
+        // extra field: declare it in better-auth `user.additionalFields`
+        // (and authClient `inferAdditionalFields`) so it is saved
+        role,
+      } as Parameters<typeof authClient.signUp.email>[0]);
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      if (data) {
+        toast.success("Account created successfully!");
+        console.log(data);
+        setTimeout(() => {
+          router.push("/");
+        }, 1000);
+      }
+
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setSignupLoading(false);
+    }
+  };
+
+  // Google Signup
+  const handleSignWithGoogle = async () => {
+    setGoogleLoading(true);
+
+    try {
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+      });
+
+      if (error) {
+        toast.error(error.message ?? "Google authentication failed.");
+        setGoogleLoading(false);
+      }
+
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+      setGoogleLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* top row */}
+      <div className="flex items-center justify-between">
+        <span className="rounded-full bg-fuchsia-50 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-widest text-fuchsia-900">
+          Register
+        </span>
+        <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-600">
+          <svg className="h-3.5 w-3.5 text-fuchsia-700" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6l-4-4 1.4-1.4 2.6 2.6 5-5 1.4 1.4-6.4 6.4z" />
+          </svg>
+          Quick setup
+        </span>
+      </div>
+
+      <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-zinc-900">
+        Create your account
+      </h1>
+      <p className="mt-1 text-xs text-zinc-600">
+        Select your role and sign up with Google or email.
+      </p>
+
+      <form onSubmit={handleEmailSignUp} className="mt-5">
+        <FieldGroup>
+
+          {/* Role cards */}
+          <div className="grid grid-cols-3 gap-3">
+            {roles.map((r) => {
+              const active = role === r.value;
+              return (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setRole(r.value)}
+                  aria-pressed={active}
+                  className={`relative flex flex-col items-center gap-2 rounded-xl border-2 px-2 py-3 transition ${
+                    active
+                      ? "border-fuchsia-700 bg-fuchsia-50 shadow-sm"
+                      : "border-zinc-200 bg-white hover:border-fuchsia-300"
+                  }`}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-900 to-fuchsia-600 text-white">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={r.icon} />
+                    </svg>
+                  </span>
+                  <span className="text-sm font-semibold text-zinc-900">{r.label}</span>
+                  {active && (
+                    <svg className="absolute right-1.5 top-1.5 h-4 w-4 text-teal-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6l-4-4 1.4-1.4 2.6 2.6 5-5 1.4 1.4-6.4 6.4z" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <Field>
+            <Button
+              onClick={handleSignWithGoogle}
+              variant="outline"
+              type="button"
+              disabled={googleLoading}
+              className="h-10 border-zinc-300 bg-white font-medium text-zinc-800 shadow-none hover:bg-zinc-50 hover:text-zinc-900"
+            >
+              <Image
+                src="/google.png"
+                alt="Google logo"
+                width={15}
+                height={15}
+              />
+              {googleLoading ? "Connecting..." : "Sign up with Google"}
+            </Button>
+          </Field>
+
+          <FieldSeparator className="text-zinc-500 *:data-[slot=field-separator-content]:bg-white *:data-[slot=field-separator-content]:text-zinc-500">
+            Or continue with
+          </FieldSeparator>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel className={labelClass} htmlFor="name">Name</FieldLabel>
+              <Input
+                className={inputClass}
+                id="name"
+                name="name"
+                type="text"
+                placeholder="Aysha Akter"
+                required
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel className={labelClass} htmlFor="image">Image URL</FieldLabel>
+              <Input
+                className={inputClass}
+                id="image"
+                name="image"
+                type="url"
+                placeholder="Image URL"
+              />
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel className={labelClass} htmlFor="email">Email</FieldLabel>
+            <Input
+                className={inputClass}
+              id="email"
+              name="email"
+              type="email"
+              placeholder="m@example.com"
+              required
+            />
+          </Field>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel className={labelClass} htmlFor="password">Password</FieldLabel>
+              <Input
+                className={inputClass}
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter your password"
+                minLength={8}
+                required
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel className={labelClass} htmlFor="confirmPassword">Confirm Password</FieldLabel>
+              <Input
+                className={inputClass}
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                placeholder="Enter it again"
+                minLength={8}
+                required
+              />
+            </Field>
+          </div>
+          <FieldDescription className="-mt-3">
+            Minimum 8 characters, including uppercase and lowercase letters.
+          </FieldDescription>
+
+          <Field>
+            <Button
+              type="submit"
+              disabled={signupLoading}
+              className="h-11 w-full gap-2 rounded-xl border-0 bg-fuchsia-800 font-bold text-white shadow-lg shadow-fuchsia-900/25 hover:bg-fuchsia-700"
+            >
+              {signupLoading ? "Creating Account..." : "Create account"}
+              {!signupLoading && (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6l6 6-6 6" />
+                </svg>
+              )}
+            </Button>
+
+            <FieldDescription className="text-center">
+              Have an account?{" "}
+              <Link href="/login" className="font-bold text-blue-900 hover:underline">
+                Login
+              </Link>
+            </FieldDescription>
+            <FieldDescription className="text-center">
+              Forgot your password?{" "}
+              <Link href="/forgot-password" className="font-bold text-blue-900 hover:underline">
+                Reset it
+              </Link>
+            </FieldDescription>
+          </Field>
+
+        </FieldGroup>
+      </form>
+
+      <FieldDescription className="mt-4 text-center">
+        By clicking continue, you agree to our{" "}
+        <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+      </FieldDescription>
+    </div>
+  )
+}
+
+export default SignUpPage;
