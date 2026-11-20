@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, User } from "lucide-react";
+import { LayoutDashboard, LogOut, User } from "lucide-react";
 import { toast } from "react-toastify";
 
 import ThemeToggle from "@/components/ThemeToggle";
@@ -168,6 +168,14 @@ export default function Navbar() {
                   </PopoverDescription>
                 </PopoverHeader>
                 <Link
+                  href="/dashboard"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <LayoutDashboard className="size-4" />
+                  Dashboard
+                </Link>
+                <Link
                   href="/profile"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground"
@@ -244,15 +252,25 @@ export default function Navbar() {
           <div className="mt-4 flex items-center gap-3 border-t border-zinc-200 pt-4 md:hidden dark:border-white/15">
             <ThemeToggle />
             {user ? (
-              <Button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                variant="destructive"
-                className="flex-1"
-              >
-                <LogOut className="size-4" />
-                {signingOut ? "Signing out..." : "Sign out"}
-              </Button>
+              <div className="flex flex-1 gap-2">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className={loginLinkClass}
+                >
+                  <LayoutDashboard className="size-4" />
+                  Dashboard
+                </Link>
+                <Button
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  variant="destructive"
+                  className="flex-1"
+                >
+                  <LogOut className="size-4" />
+                  {signingOut ? "Signing out..." : "Sign out"}
+                </Button>
+              </div>
             ) : (
               <div className="flex flex-1 gap-2">
                 <Link
