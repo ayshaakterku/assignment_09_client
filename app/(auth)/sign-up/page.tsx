@@ -17,7 +17,7 @@ import { useState } from "react"
 import { toast } from "react-toastify"
 // shadcn toast (<Toaster /> must be in the root layout)
 
-type Role = "tutor" | "guardian" | "admin"
+type Role = "tutor" | "student" | "admin"
 
 // Explicit colors so the form stays readable on the white card
 // even if your shadcn theme tokens are light/dark-mode values.
@@ -32,8 +32,8 @@ const roles: { value: Role; label: string; icon: string }[] = [
     icon: "M12 14l9-5-9-5-9 5 9 5zm0 0v6m-6-8.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5",
   },
   {
-    value: "guardian",
-    label: "Guardian",
+    value: "student",
+    label: "Student",
     icon: "M17 20h5v-2a4 4 0 00-5-3.9M9 12a4 4 0 100-8 4 4 0 000 8zm-7 8v-1a5 5 0 015-5h4a5 5 0 015 5v1H2z",
   },
   {
@@ -48,7 +48,7 @@ function SignUpPage() {
 
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
   const [signupLoading, setSignupLoading] = useState<boolean>(false);
-  const [role, setRole] = useState<Role>("tutor");
+  const [role, setRole] = useState<Role>("student");
 
   const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

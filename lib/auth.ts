@@ -16,12 +16,12 @@ export const auth = betterAuth({
     user: {
     additionalFields: {
       role: {
-        type: ["seeker", "recruiter", "admin"],
+        type: ["tutor", "student", "admin"],
         input: true,
-        defaultValue: "seeker",
+        defaultValue: "student",
         transform: {
           input: (value) =>
-            value === "tutor" || value === "admin" ? value : "guardian",
+            value === "student" || value === "admin" ? value : "tutor",
         },
       },
     },

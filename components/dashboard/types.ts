@@ -21,7 +21,7 @@ export type DashboardNavItem = {
  */
 export function normalizeRole(role?: string | null): DashboardRole {
   if (role === "admin") return "admin";
-  if (role === "tutor" || role === "recruiter") return "tutor";
+  if (role === "tutor") return "tutor";
   return "student";
 }
 

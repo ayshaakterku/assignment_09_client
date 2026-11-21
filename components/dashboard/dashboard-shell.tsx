@@ -120,7 +120,8 @@ export default function DashboardShell({
           </button>
         </div>
 
-        {/* user card */}
+        
+        {/* user card / user information*/}
         <div className="shrink-0 border-b border-border p-4">
           <div className="flex items-center gap-3">
             <UserAvatar
@@ -176,6 +177,8 @@ export default function DashboardShell({
       </aside>
 
       <div className="md:pl-64">
+
+
         {/* top bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-card/90 px-4 backdrop-blur md:px-8">
           <div className="flex min-w-0 items-center gap-2">
@@ -193,7 +196,7 @@ export default function DashboardShell({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {preview ? (
+            {/* {preview ? (
               <div className="hidden items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5 lg:flex">
                 <span className="px-2 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                   Preview
@@ -214,7 +217,7 @@ export default function DashboardShell({
                   </button>
                 ))}
               </div>
-            ) : null}
+            ) : null} */}
 
             <ThemeToggle />
 

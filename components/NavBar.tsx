@@ -58,6 +58,7 @@ export default function Navbar() {
 
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
+  console.log(user);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -168,7 +169,7 @@ export default function Navbar() {
                   </PopoverDescription>
                 </PopoverHeader>
                 <Link
-                  href="/dashboard"
+                  href={`/dashboard/${user?.role || "student"}`}
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground"
                 >
@@ -254,7 +255,7 @@ export default function Navbar() {
             {user ? (
               <div className="flex flex-1 gap-2">
                 <Link
-                  href="/dashboard"
+                  href={`/dashboard/${user?.role || "student"}`}
                   onClick={() => setOpen(false)}
                   className={loginLinkClass}
                 >
