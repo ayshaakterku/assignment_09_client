@@ -21,8 +21,30 @@ export const auth = betterAuth({
         defaultValue: "student",
         transform: {
           input: (value) =>
-            value === "student" || value === "admin" ? value : "tutor",
+            value === "tutor" || value === "admin" ? value : "student",
         },
+      },
+      phone: {
+        type: "string",
+        required: false,
+        input: true,
+      },
+      bio: {
+        type: "string",
+        required: false,
+        input: true,
+      },
+      // Not shown on the sign-up page. `input: false` means clients can never
+      // send a value, so every new account starts on the free plan.
+      // Future upgrades/downgrades should be written server-side (e.g. after a
+      // payment webhook or from an admin route), for example:
+      //   await db.collection("user").updateOne({ _id: userId }, { $set: { plan: "pro" } })
+      // or, from a trusted server handler, `auth.api.updateUser`.
+      plan: {
+        type: ["free", "pro"],
+        required: false,
+        input: false,
+        defaultValue: "free",
       },
     },
   },

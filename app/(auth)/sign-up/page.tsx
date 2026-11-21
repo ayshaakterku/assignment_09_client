@@ -9,11 +9,12 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { authClient } from "@/lib/auth-client"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "react-toastify"
 // shadcn toast (<Toaster /> must be in the root layout)
 
@@ -24,6 +25,10 @@ type Role = "tutor" | "student" | "admin"
 const labelClass = "text-xs font-semibold text-foreground";
 const inputClass =
   "h-10 rounded-md border border-input bg-background text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-fuchsia-600 focus-visible:ring-2 focus-visible:ring-fuchsia-500/20 dark:bg-input/30";
+const textareaClass =
+  "min-h-20 rounded-md border border-input bg-background py-2 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-fuchsia-600 focus-visible:ring-2 focus-visible:ring-fuchsia-500/20 dark:bg-input/30";
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
 
 const roles: { value: Role; label: string; icon: string }[] = [
   {
@@ -50,6 +55,68 @@ function SignUpPage() {
   const [signupLoading, setSignupLoading] = useState<boolean>(false);
   const [role, setRole] = useState<Role>("student");
 
+  // Profile image is uploaded to imgbb right away; only the hosted URL is
+  // sent to better-auth (the `image` field on the user).
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [imageUploading, setImageUploading] = useState<boolean>(false);
+
+  const clearImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview("");
+    setImageUrl("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error("Image must be 5 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+
+    // Show the local preview instantly while imgbb is uploading.
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    const preview = URL.createObjectURL(file);
+    setImagePreview(preview);
+    setImageUrl("");
+    setImageUploading(true);
+
+    try {
+      const body = new FormData();
+      body.append("image", file);
+
+      const response = await fetch("/api/upload", { method: "POST", body });
+      const result = (await response.json()) as { url?: string; message?: string };
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.message ?? "Image upload failed.");
+      }
+
+      setImageUrl(result.url);
+      toast.success("Profile image uploaded.");
+    } catch (error) {
+      URL.revokeObjectURL(preview);
+      setImagePreview("");
+      setImageUrl("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.error(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -58,18 +125,21 @@ function SignUpPage() {
     const user = Object.fromEntries(formData.entries()) as {
       name: string,
       email: string,
-      image: string,
+      phone: string,
+      bio: string,
       password: string,
       confirmPassword: string,
-      role: Role
     };
+
+    const phone = user.phone?.trim() ?? "";
+    const bio = user.bio?.trim() ?? "";
 
     // Password validation
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
 
     if (!passwordRegex.test(user.password)) {
       toast.error(
-        "Password must be at least 6 characters and contain uppercase and lowercase letters."
+        "Password must be at least 8 characters and contain uppercase and lowercase letters."
       );
       return;
     }
@@ -80,18 +150,34 @@ function SignUpPage() {
       return;
     }
 
+    // Optional phone validation
+    if (phone && !/^\+?[0-9\s\-()]{7,20}$/.test(phone)) {
+      toast.error("Please enter a valid phone number.");
+      return;
+    }
+
+    if (imageUploading) {
+      toast.error("Please wait for the profile image to finish uploading.");
+      return;
+    }
+
+    if (imagePreview && !imageUrl) {
+      toast.error("The profile image upload failed. Remove it or try again.");
+      return;
+    }
+
     setSignupLoading(true);
 
     try {
       const { data, error } = await authClient.signUp.email({
         name: user.name,
         email: user.email,
-        image: user.image || "",
+        image: imageUrl || undefined,
+        phone: phone || undefined,
+        bio: bio || undefined,
         password: user.password,
-        // extra field: declare it in better-auth `user.additionalFields`
-        // (and authClient `inferAdditionalFields`) so it is saved
         role,
-      } as Parameters<typeof authClient.signUp.email>[0]);
+      });
 
       if (error) {
         toast.error(error.message);
@@ -100,7 +186,6 @@ function SignUpPage() {
 
       if (data) {
         toast.success("Account created successfully!");
-        console.log(data);
         setTimeout(() => {
           router.push("/");
         }, 1000);
@@ -227,13 +312,19 @@ function SignUpPage() {
             </Field>
 
             <Field>
-              <FieldLabel className={labelClass} htmlFor="image">Image URL</FieldLabel>
+              <FieldLabel className={labelClass} htmlFor="phone">
+                Phone number{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </FieldLabel>
               <Input
                 className={inputClass}
-                id="image"
-                name="image"
-                type="url"
-                placeholder="Image URL"
+                id="phone"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="+880 1XXXXXXXXX"
+                pattern="^\+?[0-9\s\-()]{7,20}$"
               />
             </Field>
           </div>
@@ -241,13 +332,96 @@ function SignUpPage() {
           <Field>
             <FieldLabel className={labelClass} htmlFor="email">Email</FieldLabel>
             <Input
-                className={inputClass}
+              className={inputClass}
               id="email"
               name="email"
               type="email"
               placeholder="m@example.com"
               required
             />
+          </Field>
+
+          {/* Profile image upload (optional) */}
+          <Field>
+            <FieldLabel className={labelClass}>
+              Profile image{" "}
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            </FieldLabel>
+            <div className="flex items-center gap-3 rounded-xl border border-dashed border-input bg-muted/30 p-3">
+              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
+                {imagePreview ? (
+                  <Image
+                    src={imagePreview}
+                    alt="Profile image preview"
+                    width={56}
+                    height={56}
+                    unoptimized
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <svg className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM6.5 21a5.5 5.5 0 0111 0" />
+                  </svg>
+                )}
+                {imageUploading && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  </span>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={imageUploading}
+                    className="border-input bg-background text-foreground shadow-none hover:bg-muted"
+                  >
+                    {imageUploading ? "Uploading..." : imagePreview ? "Change image" : "Choose image"}
+                  </Button>
+                  {imagePreview && !imageUploading && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearImage}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  JPG, PNG, WEBP or GIF. max 2 MB
+                </p>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </div>
+          </Field>
+
+          <Field>
+            <FieldLabel className={labelClass} htmlFor="bio">
+              Bio{" "}
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            </FieldLabel>
+            <Textarea
+              className={textareaClass}
+              id="bio"
+              name="bio"
+              placeholder="Department, Institution, Experience or what you want to learn."
+              maxLength={300}
+            />
+            <FieldDescription>Up to 300 characters.</FieldDescription>
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -284,7 +458,7 @@ function SignUpPage() {
           <Field>
             <Button
               type="submit"
-              disabled={signupLoading}
+              disabled={signupLoading || imageUploading}
               className="h-11 w-full gap-2 rounded-xl border-0 bg-fuchsia-800 font-bold text-white shadow-lg shadow-fuchsia-900/25 hover:bg-fuchsia-700"
             >
               {signupLoading ? "Creating Account..." : "Create account"}
