@@ -1,23 +1,54 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   BookOpen,
   Check,
+  ChevronRight,
   Clock,
-  FileText,
+  Crown,
+  Eye,
+  Globe,
   LayoutGrid,
   Mail,
+  MapPin,
+  Pencil,
   Phone,
   Plus,
   Settings,
+  Trash2,
   Users,
-  Wallet,
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
+import {
+  deleteTutionData,
+  updateTutionData,
+  type TutionUpdate,
+} from "@/components/api-update/tution-update";
+import { updateTutorActiveStatus } from "@/components/api-update/tutor-update";
+import type { TuitionApplication } from "@/components/type/tution";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -29,6 +60,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 import DashboardShell, { type PreviewControls } from "./dashboard-shell";
 import ProfileForm from "./profile-form";
@@ -144,45 +176,86 @@ const initialApplicants: Applicant[] = [
   },
 ];
 
-const myTuitions = [
+const tutorControls = [
   {
-    title: "Complete SSC Physics: Concept Clearing & Notes",
-    subject: "Physics",
-    applicants: 14,
-    budget: "৳ 5,000 / month",
-    status: "active",
+    id: "post",
+    title: "Post New Tuition",
+    description: "Create a new course offering",
+    icon: Plus,
+    tone: "bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
   },
   {
-    title: "Mastering Advanced Mathematics for HSC & Admission",
-    subject: "Mathematics",
-    applicants: 9,
-    budget: "৳ 6,000 / month",
-    status: "active",
+    id: "tuitions",
+    title: "My Tuitions",
+    description: "Edit, activate, or delete posts",
+    icon: BookOpen,
+    tone: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
   },
   {
-    title: "Python Mastery: From Fundamentals to Data Science",
-    subject: "Programming",
-    applicants: 0,
-    budget: "৳ 8,500 / month",
-    status: "draft",
+    id: "applicants",
+    title: "Manage Applicants",
+    description: "Accept or reject students",
+    icon: Users,
+    tone: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300",
   },
-];
+] as const;
+
+function normalizeApproval(
+  status: TuitionApplication["approvalStatus"]
+): "pending" | "approved" | "rejected" {
+  if (status === "accepted" || status === "approved") return "approved";
+  if (status === "rejected") return "rejected";
+  return "pending";
+}
+
+function formatFee(value: number) {
+  return `$${Number(value || 0).toLocaleString("en-US")}`;
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
 
 export default function TutorDashboard({
   user,
+  plan,
   onSignOut,
   preview,
+  tuitions,
+  tuitionsError,
 }: {
   user: DashboardUser;
+  plan?: string | null;
   onSignOut: () => void;
   preview?: PreviewControls | null;
+  tuitions: TuitionApplication[];
+  tuitionsError?: string | null;
 }) {
-  const [active, setActive] = useState("applicants");
+  const [active, setActive] = useState("overview");
   const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
   const [posting, setPosting] = useState(false);
+  const [items, setItems] = useState<TuitionApplication[]>(tuitions);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<TuitionApplication | null>(null);
+  const [viewing, setViewing] = useState<TuitionApplication | null>(null);
+  const [deleting, setDeleting] = useState<TuitionApplication | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const accepted = applicants.filter((a) => a.status === "accepted").length;
-  const pending = applicants.filter((a) => a.status === "pending").length;
+  const planLabel = (plan || "free").toLowerCase();
+  const isPro = planLabel !== "free";
+  const activeApproved = items.filter(
+    (tuition) =>
+      tuition.isActive &&
+      normalizeApproval(tuition.approvalStatus) === "approved"
+  ).length;
 
   const respond = (id: number, status: ApplicantStatus) => {
     setApplicants((current) =>
@@ -208,6 +281,113 @@ export default function TutorDashboard({
     }, 600);
   };
 
+  const toggleActive = async (tuition: TuitionApplication) => {
+    if (busyId) return;
+
+    const next = !tuition.isActive;
+    setBusyId(tuition._id);
+
+    try {
+      await updateTutorActiveStatus(tuition._id, next);
+      setItems((current) =>
+        current.map((item) =>
+          item._id === tuition._id ? { ...item, isActive: next } : item
+        )
+      );
+      toast.success(
+        next ? "Tuition is now active." : "Tuition is now closed."
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not update the active status."
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleEditSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (!editing) return;
+
+    const form = new FormData(event.currentTarget);
+
+    const payload: TutionUpdate = {
+      title: String(form.get("title") ?? "").trim(),
+      subject: String(form.get("subject") ?? "").trim(),
+      classLevel: String(form.get("classLevel") ?? "").trim(),
+      mode: form.get("mode") === "Online" ? "Online" : "Offline",
+      location: String(form.get("location") ?? "").trim(),
+      monthlyFee: Number(form.get("monthlyFee") ?? 0),
+      daysPerWeek: Number(form.get("daysPerWeek") ?? 0),
+      description: String(form.get("description") ?? "").trim(),
+    };
+
+    if (!payload.title || !payload.subject) {
+      toast.error("Title and subject are required.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await updateTutionData(editing._id, payload);
+      setItems((current) =>
+        current.map((item) =>
+          item._id === editing._id ? { ...item, ...payload } : item
+        )
+      );
+      toast.success("Tuition updated successfully.");
+      setEditing(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not update the tuition."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+
+    const target = deleting;
+    setBusyId(target._id);
+
+    try {
+      await deleteTutionData(target._id);
+      setItems((current) =>
+        current.filter((item) => item._id !== target._id)
+      );
+      toast.success("Tuition deleted successfully.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete the tuition."
+      );
+    } finally {
+      setBusyId(null);
+      setDeleting(null);
+    }
+  };
+
+  const firstName = user.name?.split(" ")[0] || "Tutor";
+
+  const postButton = (
+    <button
+      type="button"
+      onClick={() => setActive("post")}
+      className="inline-flex items-center gap-2 rounded-lg bg-purple-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700 dark:bg-fuchsia-700 dark:hover:bg-fuchsia-600"
+    >
+      <Plus className="size-4" />
+      Post New Tuition
+    </button>
+  );
+
   return (
     <DashboardShell
       role="tutor"
@@ -219,6 +399,316 @@ export default function TutorDashboard({
       onSignOut={onSignOut}
       preview={preview}
     >
+      {active === "overview" ? (
+        <>
+          <PageHeading
+            title="Tutor Dashboard"
+            subtitle={`Welcome back, ${firstName}! Track your tuition listings and incoming student applicants.`}
+            action={postButton}
+          />
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Total Tuitions"
+              value={items.length}
+              hint={isPro ? "Unlimited posts unlocked" : "Your created tuition listings"}
+              icon={BookOpen}
+              tone="purple"
+            />
+            <StatCard
+              label="Active & Approved"
+              value={activeApproved}
+              hint="Publicly listed and accepting students"
+              icon={Check}
+              tone="emerald"
+            />
+            <StatCard
+              label="Total Applicants"
+              value={applicants.length}
+              hint="Interested students applied across all posts"
+              icon={Users}
+              tone="blue"
+            />
+            <StatCard
+              label="Current Plan"
+              value={planLabel.toUpperCase()}
+              hint={
+                isPro
+                  ? "Priority listing in searches"
+                  : "Upgrade to Pro for priority listing"
+              }
+              icon={Crown}
+              tone="amber"
+            />
+          </div>
+
+          <Panel className="mt-6 overflow-hidden">
+            <PanelHeader
+              title="Tutor Controls"
+              description="Quick actions for your workspace."
+            />
+            <div className="divide-y divide-border">
+              {tutorControls.map((control) => {
+                const Icon = control.icon;
+
+                return (
+                  <button
+                    key={control.id}
+                    type="button"
+                    onClick={() => setActive(control.id)}
+                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-muted/50"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                        control.tone
+                      )}
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-foreground">
+                        {control.title}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {control.description}
+                      </span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+
+          <div
+            className={cn(
+              "mt-6 flex items-start gap-3 rounded-xl border p-5",
+              isPro
+                ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+                : "border-border bg-card"
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                isPro
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+              )}
+            >
+              <Crown className="size-4" />
+            </span>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {isPro ? "Pro Member Active" : "Free Plan"}
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                {isPro
+                  ? "You have unlimited tuition postings and a verified tutor badge enabled across the platform."
+                  : "Upgrade to Pro for unlimited tuition postings, a verified tutor badge, and priority listing."}
+              </p>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {active === "tuitions" ? (
+        <>
+          <PageHeading
+            title="My Tuitions"
+            subtitle="Manage your created tuition listings, toggle availability, or make updates."
+            action={postButton}
+          />
+
+          {tuitionsError ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                  <X className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  Could not load your tuitions
+                </p>
+                <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+                  {tuitionsError}
+                </p>
+              </div>
+            </Panel>
+          ) : items.length === 0 ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                  <BookOpen className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  No tuitions yet
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                  Create your first tuition listing so students can start
+                  applying.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActive("post")}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-purple-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700 dark:bg-fuchsia-700 dark:hover:bg-fuchsia-600"
+                >
+                  <Plus className="size-4" />
+                  Post New Tuition
+                </button>
+              </div>
+            </Panel>
+          ) : (
+            <Panel className="mt-6 overflow-hidden">
+              <Table className="min-w-[1000px]">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="px-4">Tuition</TableHead>
+                    <TableHead className="px-4">Subject & Level</TableHead>
+                    <TableHead className="px-4">Monthly Fee</TableHead>
+                    <TableHead className="px-4">Approval Status</TableHead>
+                    <TableHead className="px-4">Active Status</TableHead>
+                    <TableHead className="px-4 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((tuition) => {
+                    const busy = busyId === tuition._id;
+
+                    return (
+                      <TableRow key={tuition._id}>
+                        <TableCell className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                              {tuition.bannerImage ? (
+                                <Image
+                                  src={tuition.bannerImage}
+                                  alt=""
+                                  fill
+                                  unoptimized
+                                  sizes="56px"
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                  <BookOpen className="size-4" />
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0 max-w-[240px]">
+                              <p
+                                className="truncate font-semibold text-foreground"
+                                title={tuition.title}
+                              >
+                                {tuition.title}
+                              </p>
+                              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                {tuition.mode === "Online" ? (
+                                  <Globe className="size-3 shrink-0" />
+                                ) : (
+                                  <MapPin className="size-3 shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {tuition.mode === "Online"
+                                    ? "Online"
+                                    : tuition.location || "Offline"}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <p className="max-w-[160px] truncate text-xs font-semibold text-purple-700 dark:text-purple-300">
+                            {tuition.subject}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {tuition.classLevel || "—"}
+                          </p>
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4 whitespace-nowrap font-bold text-foreground">
+                          {formatFee(tuition.monthlyFee)}
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <StatusBadge
+                            status={normalizeApproval(tuition.approvalStatus)}
+                          />
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => toggleActive(tuition)}
+                            disabled={busy}
+                            aria-pressed={tuition.isActive}
+                            title={
+                              tuition.isActive
+                                ? "Click to close this tuition"
+                                : "Click to activate this tuition"
+                            }
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-60",
+                              tuition.isActive
+                                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25"
+                                : "bg-muted text-muted-foreground hover:bg-muted/70"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full",
+                                tuition.isActive
+                                  ? "bg-emerald-500"
+                                  : "bg-muted-foreground"
+                              )}
+                            />
+                            {busy
+                              ? "Updating..."
+                              : tuition.isActive
+                                ? "Active"
+                                : "Closed"}
+                          </button>
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              aria-label="View tuition"
+                              onClick={() => setViewing(tuition)}
+                              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            >
+                              <Eye className="size-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Edit tuition"
+                              onClick={() => setEditing(tuition)}
+                              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Delete tuition"
+                              onClick={() => setDeleting(tuition)}
+                              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-300"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Panel>
+          )}
+        </>
+      ) : null}
+
       {active === "applicants" ? (
         <>
           <PageHeading
@@ -320,81 +810,6 @@ export default function TutorDashboard({
         </>
       ) : null}
 
-      {active === "overview" ? (
-        <>
-          <PageHeading
-            title={`Welcome back, ${user.name?.split(" ")[0] || "Tutor"}!`}
-            subtitle="Here is a quick look at your tuitions and applicant activity."
-          />
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Active Tuitions"
-              value={myTuitions.filter((t) => t.status === "active").length}
-              hint="Tuitions currently accepting applications."
-              icon={BookOpen}
-              tone="purple"
-            />
-            <StatCard
-              label="Total Applicants"
-              value={applicants.length}
-              hint="Students who applied to your tuitions."
-              icon={Users}
-              tone="blue"
-            />
-            <StatCard
-              label="Accepted"
-              value={accepted}
-              hint="Applicants you approved."
-              icon={Check}
-              tone="emerald"
-            />
-            <StatCard
-              label="Pending Review"
-              value={pending}
-              hint="Applications waiting for your response."
-              icon={Clock}
-              tone="amber"
-            />
-          </div>
-
-          <Panel className="mt-6 overflow-hidden">
-            <PanelHeader
-              title="Recent applicants"
-              description="The latest students who applied to your tuitions."
-              action={
-                <button
-                  type="button"
-                  onClick={() => setActive("applicants")}
-                  className="text-xs font-semibold text-purple-700 hover:underline dark:text-purple-300"
-                >
-                  View all
-                </button>
-              }
-            />
-            <div className="divide-y divide-border">
-              {applicants.slice(0, 4).map((applicant) => (
-                <div
-                  key={applicant.id}
-                  className="flex flex-wrap items-center gap-3 px-5 py-3.5"
-                >
-                  <UserAvatar name={applicant.name} className="size-9" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {applicant.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {applicant.course}
-                    </p>
-                  </div>
-                  <StatusBadge status={applicant.status} />
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </>
-      ) : null}
-
       {active === "post" ? (
         <>
           <PageHeading
@@ -486,66 +901,246 @@ export default function TutorDashboard({
         </>
       ) : null}
 
-      {active === "tuitions" ? (
-        <>
-          <PageHeading
-            title="My Tuitions"
-            subtitle="Manage the tuitions you have posted."
-            action={
-              <button
-                type="button"
-                onClick={() => setActive("post")}
-                className="inline-flex items-center gap-2 rounded-lg bg-purple-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700 dark:bg-fuchsia-700 dark:hover:bg-fuchsia-600"
-              >
-                <Plus className="size-4" />
-                Post Tuition
-              </button>
-            }
-          />
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {myTuitions.map((tuition) => (
-              <div
-                key={tuition.title}
-                className="flex flex-col rounded-xl border border-border bg-card p-5 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-white/10 dark:text-purple-200">
-                    <BookOpen className="size-4" />
-                  </span>
-                  <StatusBadge status={tuition.status} />
-                </div>
-                <h3 className="mt-3 text-sm font-bold text-foreground">
-                  {tuition.title}
-                </h3>
-                <p className="mt-1 text-xs font-medium text-fuchsia-600 dark:text-fuchsia-300">
-                  {tuition.subject}
-                </p>
-                <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                  <p className="flex items-center gap-1.5">
-                    <Users className="size-3.5" />
-                    {tuition.applicants} applicants
-                  </p>
-                  <p className="flex items-center gap-1.5">
-                    <Wallet className="size-3.5" />
-                    {tuition.budget}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActive("applicants")}
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:underline dark:text-purple-300"
-                >
-                  <FileText className="size-3.5" />
-                  View applicants
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null}
-
       {active === "profile" ? <ProfileForm user={user} /> : null}
+
+      {/* View tuition */}
+      <Dialog
+        open={!!viewing}
+        onOpenChange={(open) => {
+          if (!open) setViewing(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {viewing ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="pr-8">{viewing.title}</DialogTitle>
+                <DialogDescription>
+                  {viewing.subject}
+                  {viewing.classLevel ? ` · ${viewing.classLevel}` : ""}
+                </DialogDescription>
+              </DialogHeader>
+
+              {viewing.bannerImage ? (
+                <div className="relative h-36 w-full overflow-hidden rounded-lg border border-border bg-muted">
+                  <Image
+                    src={viewing.bannerImage}
+                    alt=""
+                    fill
+                    unoptimized
+                    sizes="(min-width: 640px) 512px, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Monthly fee</p>
+                  <p className="mt-0.5 font-bold text-foreground">
+                    {formatFee(viewing.monthlyFee)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Days per week</p>
+                  <p className="mt-0.5 font-semibold text-foreground">
+                    {viewing.daysPerWeek || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Mode</p>
+                  <p className="mt-0.5 font-semibold text-foreground">
+                    {viewing.mode}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Location</p>
+                  <p className="mt-0.5 font-semibold text-foreground">
+                    {viewing.location || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Created</p>
+                  <p className="mt-0.5 font-semibold text-foreground">
+                    {formatDate(viewing.createdAt)}
+                  </p>
+                </div>
+                <div className="flex items-end gap-2">
+                  <StatusBadge
+                    status={normalizeApproval(viewing.approvalStatus)}
+                  />
+                  <StatusBadge
+                    status={viewing.isActive ? "active" : "closed"}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground">Description</p>
+                <p className="mt-1 text-sm leading-6 text-foreground">
+                  {viewing.description || "No description provided."}
+                </p>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit tuition */}
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open) => {
+          if (!open && !saving) setEditing(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          {editing ? (
+            <form
+              key={editing._id}
+              onSubmit={handleEditSubmit}
+              className="space-y-4"
+            >
+              <DialogHeader>
+                <DialogTitle>Edit tuition</DialogTitle>
+                <DialogDescription>
+                  Update the details of your tuition listing.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="edit-title">Title</Label>
+                  <Input
+                    id="edit-title"
+                    name="title"
+                    defaultValue={editing.title}
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-subject">Subject</Label>
+                  <Input
+                    id="edit-subject"
+                    name="subject"
+                    defaultValue={editing.subject}
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-class">Class / level</Label>
+                  <Input
+                    id="edit-class"
+                    name="classLevel"
+                    defaultValue={editing.classLevel}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-mode">Mode</Label>
+                  <select
+                    id="edit-mode"
+                    name="mode"
+                    defaultValue={editing.mode}
+                    className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                  >
+                    <option value="Online">Online</option>
+                    <option value="Offline">Offline</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-location">Location</Label>
+                  <Input
+                    id="edit-location"
+                    name="location"
+                    defaultValue={editing.location}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-fee">Monthly fee</Label>
+                  <Input
+                    id="edit-fee"
+                    name="monthlyFee"
+                    type="number"
+                    min={0}
+                    defaultValue={editing.monthlyFee}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-days">Days per week</Label>
+                  <Input
+                    id="edit-days"
+                    name="daysPerWeek"
+                    type="number"
+                    min={0}
+                    max={7}
+                    defaultValue={editing.daysPerWeek}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    name="description"
+                    rows={4}
+                    defaultValue={editing.description}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditing(null)}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-purple-800 text-white hover:bg-purple-700 dark:bg-fuchsia-700 dark:hover:bg-fuchsia-600"
+                >
+                  {saving ? "Saving..." : "Save changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete tuition */}
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open && !busyId) setDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this tuition?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{deleting?.title}&rdquo; will be permanently removed. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!busyId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={!!busyId}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {busyId ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardShell>
   );
 }

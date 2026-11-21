@@ -1,23 +1,32 @@
-"use client";
+import { headers } from "next/headers";
 
-import TutorDashboard from "@/components/dashboard/tutor-dashboard";
-import {
-  DashboardLoading,
-  useDashboardSession,
-} from "@/components/dashboard/use-dashboard-session";
+import { getTutions } from "@/components/api-access/tutions";
+import TutorPageClient from "@/components/dashboard/tutor-page-client";
+import type { TuitionApplication } from "@/components/type/tution";
+import { auth } from "@/lib/auth";
 
-export default function TutorDashboardPage() {
-  const { user, isReady, signOut, preview } = useDashboardSession("tutor");
+export const dynamic = "force-dynamic";
 
-  if (!isReady || !user) {
-    return <DashboardLoading />;
+export default async function TutorDashboardPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const email = session?.user?.email ?? "";
+
+  let tuitions: TuitionApplication[] = [];
+  let tuitionsError: string | null = null;
+
+  if (email) {
+    try {
+      // Only the signed-in tutor's own listings.
+      tuitions = await getTutions(`tutorEmail=${encodeURIComponent(email)}`);
+    } catch (error) {
+      tuitionsError =
+        error instanceof Error
+          ? error.message
+          : "Could not load your tuitions from the server.";
+    }
   }
 
   return (
-    <TutorDashboard
-      user={{ name: user.name, email: user.email, image: user.image }}
-      onSignOut={signOut}
-      preview={preview}
-    />
+    <TutorPageClient tuitions={tuitions} tuitionsError={tuitionsError} />
   );
 }

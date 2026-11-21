@@ -1,23 +1,41 @@
-"use client";
+import { getTutions } from "@/components/api-access/tutions";
+import { getUser } from "@/components/api-access/users";
+import AdminPageClient from "@/components/dashboard/admin-page-client";
+import type { TuitionApplication } from "@/components/type/tution";
+import type { IUser } from "@/components/type/user";
 
-import AdminDashboard from "@/components/dashboard/admin-dashboard";
-import {
-  DashboardLoading,
-  useDashboardSession,
-} from "@/components/dashboard/use-dashboard-session";
+export const dynamic = "force-dynamic";
 
-export default function AdminDashboardPage() {
-  const { user, isReady, signOut, preview } = useDashboardSession("admin");
+export default async function AdminDashboardPage() {
+  const [tuitionsResult, usersResult] = await Promise.allSettled([
+    getTutions(),
+    getUser(),
+  ]);
 
-  if (!isReady || !user) {
-    return <DashboardLoading />;
-  }
+  const tuitions: TuitionApplication[] =
+    tuitionsResult.status === "fulfilled" ? tuitionsResult.value : [];
+  const tuitionsError =
+    tuitionsResult.status === "rejected"
+      ? tuitionsResult.reason instanceof Error
+        ? tuitionsResult.reason.message
+        : "Could not load tuition listings from the server."
+      : null;
+
+  const users: IUser[] =
+    usersResult.status === "fulfilled" ? usersResult.value : [];
+  const usersError =
+    usersResult.status === "rejected"
+      ? usersResult.reason instanceof Error
+        ? usersResult.reason.message
+        : "Could not load users from the server."
+      : null;
 
   return (
-    <AdminDashboard
-      user={{ name: user.name, email: user.email, image: user.image }}
-      onSignOut={signOut}
-      preview={preview}
+    <AdminPageClient
+      tuitions={tuitions}
+      tuitionsError={tuitionsError}
+      users={users}
+      usersError={usersError}
     />
   );
 }

@@ -68,6 +68,8 @@ export function RoleBadge({
 const statusStyles: Record<string, string> = {
   accepted:
     "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  approved:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
   pending:
     "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   rejected:
@@ -76,17 +78,26 @@ const statusStyles: Record<string, string> = {
   active:
     "bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
   draft: "bg-muted text-muted-foreground",
+  closed: "bg-muted text-muted-foreground",
+  verified:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  unverified:
+    "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   suspended:
     "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
 };
 
 const statusDots: Record<string, string> = {
   accepted: "bg-emerald-500",
+  approved: "bg-emerald-500",
   pending: "bg-amber-500",
   rejected: "bg-red-500",
   paid: "bg-emerald-500",
   active: "bg-purple-500",
   draft: "bg-muted-foreground",
+  closed: "bg-muted-foreground",
+  verified: "bg-emerald-500",
+  unverified: "bg-amber-500",
   suspended: "bg-red-500",
 };
 
