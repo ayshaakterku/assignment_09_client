@@ -34,6 +34,11 @@ export const auth = betterAuth({
         required: false,
         input: true,
       },
+      location: {
+        type: "string",
+        required: false,
+        input: true,
+      },
       // Not shown on the sign-up page. `input: false` means clients can never
       // send a value, so every new account starts on the free plan.
       // Future upgrades/downgrades should be written server-side (e.g. after a

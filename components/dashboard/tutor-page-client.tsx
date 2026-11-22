@@ -28,7 +28,7 @@ export default function TutorPageClient({
 
   return (
     <TutorDashboard
-      user={{ name: user.name, email: user.email, image: user.image }}
+      user={user}
       plan={user.plan}
       onSignOut={signOut}
       preview={preview}

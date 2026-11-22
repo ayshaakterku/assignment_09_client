@@ -14,6 +14,7 @@ import {
 
 import { getTutionById } from "@/components/api-access/tutions";
 import ContactTutorDialog from "@/components/contact-tutor-dialog";
+import SavedTutionDialog from "@/components/saved-tutor-dialog";
 
 // Next.js 16: params is a Promise
 type Props = { params: Promise<{ id: string }> };
@@ -182,6 +183,7 @@ const TutionDetailPage = async ({ params }: Props) => {
                 enrollment.
               </p>
             </div>
+            <SavedTutionDialog tuition={tuition} />
             <ContactTutorDialog tuition={tuition} />
           </section>
         </div>

@@ -12,5 +12,6 @@ export interface IUser {
   role: UserRole;
   phone: string;
   bio: string;
+  location: string;
   plan: UserPlan;
 }

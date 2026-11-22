@@ -1,5 +1,6 @@
 "use client";
 
+import type { ISavedTuitionApplication } from "@/components/api-access/saved";
 import type { StudentTuitionApplication } from "@/components/type/application";
 
 import StudentDashboard from "./student-dashboard";
@@ -11,9 +12,13 @@ import {
 export default function StudentPageClient({
   applications,
   applicationsError,
+  savedTuitions,
+  savedError,
 }: {
   applications: StudentTuitionApplication[];
   applicationsError?: string | null;
+  savedTuitions: ISavedTuitionApplication[];
+  savedError?: string | null;
 }) {
   const { user, isReady, signOut, preview } = useDashboardSession("student");
 
@@ -23,12 +28,14 @@ export default function StudentPageClient({
 
   return (
     <StudentDashboard
-      user={{ name: user.name, email: user.email, image: user.image }}
+      user={user}
       plan={user.plan}
       onSignOut={signOut}
       preview={preview}
       applications={applications}
       applicationsError={applicationsError}
+      savedTuitions={savedTuitions}
+      savedError={savedError}
     />
   );
 }

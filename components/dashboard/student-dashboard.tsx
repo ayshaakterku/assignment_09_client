@@ -11,14 +11,19 @@ import {
   FileText,
   GraduationCap,
   LayoutGrid,
-  MapPin,
+  Mail,
   Search,
   Settings,
   Sparkles,
-  Wallet,
+  Trash2,
   X,
 } from "lucide-react";
+import { toast } from "react-toastify";
 
+import {
+  deleteSavedTution,
+  type ISavedTuitionApplication,
+} from "@/components/api-access/saved";
 import type { StudentTuitionApplication } from "@/components/type/application";
 import {
   Table,
@@ -63,27 +68,6 @@ function formatDate(value: string) {
     timeZone: "UTC",
   }).format(date);
 }
-
-const savedTuitions = [
-  {
-    title: "Mastering Advanced Mathematics for HSC & Admission",
-    subject: "Mathematics",
-    budget: "৳ 6,000 / month",
-    location: "Dhanmondi, Dhaka",
-  },
-  {
-    title: "Python Mastery: From Fundamentals to Data Science",
-    subject: "Programming",
-    budget: "৳ 8,500 / month",
-    location: "Online",
-  },
-  {
-    title: "Complete SSC Physics: Concept Clearing & Notes",
-    subject: "Physics",
-    budget: "৳ 5,000 / month",
-    location: "Uttara, Dhaka",
-  },
-];
 
 function QuickAction({
   icon: Icon,
@@ -144,6 +128,8 @@ export default function StudentDashboard({
   preview,
   applications,
   applicationsError,
+  savedTuitions: initialSavedTuitions,
+  savedError,
 }: {
   user: DashboardUser;
   plan?: string | null;
@@ -151,9 +137,36 @@ export default function StudentDashboard({
   preview?: PreviewControls | null;
   applications: StudentTuitionApplication[];
   applicationsError?: string | null;
+  savedTuitions: ISavedTuitionApplication[];
+  savedError?: string | null;
 }) {
   const [active, setActive] = useState("overview");
+  const [savedItems, setSavedItems] =
+    useState<ISavedTuitionApplication[]>(initialSavedTuitions);
+  const [savedBusyId, setSavedBusyId] = useState<string | null>(null);
   const firstName = user.name?.split(" ")[0] || "there";
+
+  const removeSavedTuition = async (item: ISavedTuitionApplication) => {
+    if (savedBusyId) return;
+
+    setSavedBusyId(item._id);
+
+    try {
+      await deleteSavedTution(item._id, item.studentEmail);
+      setSavedItems((current) =>
+        current.filter((saved) => saved._id !== item._id)
+      );
+      toast.success("Removed from saved tuitions.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not remove the saved tuition."
+      );
+    } finally {
+      setSavedBusyId(null);
+    }
+  };
 
   const planLabel = (plan || "free").toLowerCase();
   const isPro = planLabel !== "free";
@@ -241,7 +254,11 @@ export default function StudentDashboard({
               <QuickAction
                 icon={Bookmark}
                 title="Saved Tuitions"
-                description="Your bookmarked subjects"
+                description={
+                  savedItems.length
+                    ? `${savedItems.length} bookmarked tuition${savedItems.length === 1 ? "" : "s"}`
+                    : "Your bookmarked subjects"
+                }
                 onClick={() => setActive("saved")}
               />
               <QuickAction
@@ -378,43 +395,121 @@ export default function StudentDashboard({
           <PageHeading
             title="Saved Tuitions"
             subtitle="Tuitions you bookmarked to review later."
+            action={
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground">
+                <Bookmark className="size-3.5" />
+                {savedItems.length} saved
+              </span>
+            }
           />
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {savedTuitions.map((tuition) => (
-              <div
-                key={tuition.title}
-                className="flex flex-col rounded-xl border border-border bg-card p-5 shadow-sm"
-              >
-                <span className="flex size-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-white/10 dark:text-purple-200">
-                  <Bookmark className="size-4" />
+          {savedError ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                  <X className="size-5" />
                 </span>
-                <h3 className="mt-3 text-sm font-bold text-foreground">
-                  {tuition.title}
-                </h3>
-                <p className="mt-1 text-xs font-medium text-fuchsia-600 dark:text-fuchsia-300">
-                  {tuition.subject}
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  Could not load your saved tuitions
                 </p>
-                <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                  <p className="flex items-center gap-1.5">
-                    <Wallet className="size-3.5" />
-                    {tuition.budget}
-                  </p>
-                  <p className="flex items-center gap-1.5">
-                    <MapPin className="size-3.5" />
-                    {tuition.location}
-                  </p>
-                </div>
+                <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+                  {savedError}
+                </p>
+              </div>
+            </Panel>
+          ) : savedItems.length === 0 ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                  <Bookmark className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  No saved tuitions yet
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                  Bookmark a tuition from its details page and it will appear
+                  here.
+                </p>
                 <Link
                   href="/browse-tution"
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:underline dark:text-purple-300"
+                  className={`${primaryButtonClass} mt-4`}
                 >
-                  View details
-                  <ArrowRight className="size-3.5" />
+                  <Search className="size-4" />
+                  Browse Tuitions
                 </Link>
               </div>
-            ))}
-          </div>
+            </Panel>
+          ) : (
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {savedItems.map((tuition) => {
+                const busy = savedBusyId === tuition._id;
+
+                return (
+                  <article
+                    key={tuition._id}
+                    className="relative flex flex-col rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-purple-300 hover:shadow-md dark:hover:border-purple-500/40"
+                  >
+                    {/* Whole card is clickable; the delete button sits above it. */}
+                    <Link
+                      href="/browse-tution"
+                      aria-label={`Open ${tuition.tuitionTitle}`}
+                      className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                    />
+
+                    <div className="relative z-10 flex items-start justify-between gap-2">
+                      <span className="flex size-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-white/10 dark:text-purple-200">
+                        <Bookmark className="size-4" />
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => removeSavedTuition(tuition)}
+                        disabled={busy}
+                        aria-label={`Remove ${tuition.tuitionTitle} from saved`}
+                        className="rounded-md p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-red-500/15 dark:hover:text-red-300"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+
+                    <h3 className="mt-3 line-clamp-2 text-sm font-bold text-foreground">
+                      {tuition.tuitionTitle}
+                    </h3>
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                        {tuition.subject}
+                      </span>
+                      <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                        {formatFee(tuition.monthlyFee)}
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          /mo
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                      <p className="flex items-center gap-1.5 truncate">
+                        <Mail className="size-3.5 shrink-0" />
+                        <span className="truncate">
+                          {tuition.tutorEmail || "—"}
+                        </span>
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <Clock className="size-3.5 shrink-0" />
+                        Saved {formatDate(tuition.appliedAt)}
+                      </p>
+                    </div>
+
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
+                      View tuitions
+                      <ArrowRight className="size-3.5" />
+                    </span>
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
           <div className="mt-6 flex items-center gap-3 rounded-xl border border-dashed border-border bg-card p-5">
             <GraduationCap className="size-5 text-muted-foreground" />

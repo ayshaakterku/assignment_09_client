@@ -3,9 +3,13 @@ import type { LucideIcon } from "lucide-react";
 export type DashboardRole = "student" | "tutor" | "admin";
 
 export type DashboardUser = {
+  id?: string | null;
   name?: string | null;
   email?: string | null;
   image?: string | null;
+  phone?: string | null;
+  bio?: string | null;
+  location?: string | null;
   plan?: string | null;
 };
 

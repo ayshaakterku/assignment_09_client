@@ -27,7 +27,7 @@ export default function AdminPageClient({
 
   return (
     <AdminDashboard
-      user={{ name: user.name, email: user.email, image: user.image }}
+      user={user}
       onSignOut={signOut}
       preview={preview}
       tuitions={tuitions}
