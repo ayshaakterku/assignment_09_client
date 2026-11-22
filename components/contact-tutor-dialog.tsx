@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { authClient } from "@/lib/auth-client"
 import { getStudentApplicationCount } from "./api-access/count"
 import { redirect, useRouter } from "next/navigation"
+import { getUserPremiumById } from "./api-access/users"
 
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-fuchsia-700 to-purple-800 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-110"
@@ -96,11 +97,22 @@ export default function ContactTutorDialog({
 
     setSending(true)
 
+    // Premium Id checking 
+    const PremiumResult = await getUserPremiumById(student.id)
+    // console.log("PremiumResult :", PremiumResult);
+
     // directed to payment page if number of post is greater than 2
     const studentApplicationCount = await getStudentApplicationCount(
       student.email
     )
-    if (studentApplicationCount >= 2) {
+    // without studen cannot add tution
+    if (student.role !== "student"){
+      toast.info("You need student account")
+      redirect('/sign-up')
+      return
+    }
+
+    if (!PremiumResult.premium && studentApplicationCount >= 2) {
       toast.error("You have already reached the limit")
       redirect("/payment")
       return

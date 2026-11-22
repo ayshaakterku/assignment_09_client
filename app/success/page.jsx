@@ -18,6 +18,7 @@ export default async function Success({ searchParams }) {
     payment_intent,
     payment_status,
     customer_details,
+    amount_total,
   } = await stripe.checkout.sessions.retrieve(session_id, {
     expand: ["line_items", "payment_intent"],
   })
