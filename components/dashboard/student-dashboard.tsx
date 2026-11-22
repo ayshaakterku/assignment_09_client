@@ -184,7 +184,7 @@ export default function StudentDashboard({
             title={<>Welcome back, {firstName}! 👋</>}
             subtitle="Track your applied tuition applications, reviews, and learning journey."
             action={
-              <Link href="/browse-tuitions" className={primaryButtonClass}>
+              <Link href="/browse-tution" className={primaryButtonClass}>
                 <Search className="size-4" />
                 Browse Tuitions
               </Link>
@@ -248,7 +248,7 @@ export default function StudentDashboard({
                 icon={Search}
                 title="Explore Mentors"
                 description="Find experienced tutors"
-                href="/browse-tuitions"
+                href="/browse-tution"
               />
               <div className="p-4">
                 <div className="flex items-start gap-3 rounded-lg bg-gradient-to-r from-purple-50 to-fuchsia-50 p-4 dark:from-purple-500/10 dark:to-fuchsia-500/10">
@@ -275,7 +275,7 @@ export default function StudentDashboard({
             title="My Applications"
             subtitle="Every tuition application you have submitted, in one place."
             action={
-              <Link href="/browse-tuitions" className={primaryButtonClass}>
+              <Link href="/browse-tution" className={primaryButtonClass}>
                 <Search className="size-4" />
                 Browse Tuitions
               </Link>
@@ -310,7 +310,7 @@ export default function StudentDashboard({
                   here.
                 </p>
                 <Link
-                  href="/browse-tuitions"
+                  href="/browse-tution"
                   className={`${primaryButtonClass} mt-4`}
                 >
                   <Search className="size-4" />
@@ -406,7 +406,7 @@ export default function StudentDashboard({
                   </p>
                 </div>
                 <Link
-                  href="/browse-tuitions"
+                  href="/browse-tution"
                   className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:underline dark:text-purple-300"
                 >
                   View details
@@ -421,7 +421,7 @@ export default function StudentDashboard({
             <p className="text-sm text-muted-foreground">
               Looking for more options?{" "}
               <Link
-                href="/browse-tuitions"
+                href="/browse-tution"
                 className="font-semibold text-purple-700 hover:underline dark:text-purple-300"
               >
                 Browse all tuitions

@@ -8,12 +8,12 @@ import {
   GraduationCap,
   House,
   Laptop,
-  Mail,
   MapPin,
   UserRound,
 } from "lucide-react";
 
 import { getTutionById } from "@/components/api-access/tutions";
+import ContactTutorDialog from "@/components/contact-tutor-dialog";
 
 // Next.js 16: params is a Promise
 type Props = { params: Promise<{ id: string }> };
@@ -182,13 +182,7 @@ const TutionDetailPage = async ({ params }: Props) => {
                 enrollment.
               </p>
             </div>
-            <a
-              href={`mailto:${tuition.tutorEmail}`}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-fuchsia-700 to-purple-800 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110"
-            >
-              <Mail className="size-4" />
-              Contact Tutor
-            </a>
+            <ContactTutorDialog tuition={tuition} />
           </section>
         </div>
       </article>

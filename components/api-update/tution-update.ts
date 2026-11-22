@@ -83,7 +83,6 @@ export const createTutionData = async (
 
     throw new Error(message);
   }
-
   const body = (await res.json()) as {
     inserted?: TuitionApplication;
     insertedId?: string;
@@ -128,4 +127,5 @@ export const updateApplicationStatus = async (
 
   return res.json();
 };
+
 
