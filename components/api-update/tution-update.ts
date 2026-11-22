@@ -128,3 +128,4 @@ export const updateApplicationStatus = async (
 
   return res.json();
 };
+

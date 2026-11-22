@@ -88,7 +88,7 @@ export default function Banner() {
               Find the Right Tutor in Your Area
             </p>
 
-            <Link href="/find-tutor" className={`mt-5 ${ctaClass}`}>
+            <Link href="/browse-tution" className={`mt-5 ${ctaClass}`}>
               <svg
                 className="h-3.5 w-3.5"
                 fill="none"
@@ -196,7 +196,7 @@ export default function Banner() {
               </p>
 
               <Link
-                href="/browse-tuitions"
+                href="/browse-tution"
                 className="mt-6 inline-flex items-center gap-2 rounded bg-gradient-to-r from-[#8a1f8a] to-[#4c0d52] px-6 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-[0_10px_24px_-6px_rgba(76,13,82,0.5)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background"
               >
                 <svg
