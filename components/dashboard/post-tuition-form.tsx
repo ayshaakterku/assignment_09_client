@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState } from "react"
+import Image from "next/image"
 import {
   BookOpen,
   Globe,
@@ -11,127 +11,150 @@ import {
   ShieldCheck,
   Trash2,
   UploadCloud,
-} from "lucide-react";
-import { toast } from "react-toastify";
+} from "lucide-react"
+import { toast } from "react-toastify"
 
-import { createTutionData } from "@/components/api-update/tution-update";
+import { createTutionData } from "@/components/api-update/tution-update"
 import type {
   PostTuitionApplicationForm,
   TuitionApplication,
   TuitionMode,
-} from "@/components/type/tution";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+} from "@/components/type/tution"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 
-import type { DashboardUser } from "./types";
-import { Panel } from "./ui";
+import type { DashboardUser } from "./types"
+import { Panel } from "./ui"
+import { authClient } from "@/lib/auth-client"
+import { getUserPremiumById } from "../api-access/users"
+import {
+  getStudentApplicationCount,
+  getTutorTutionCount,
+} from "../api-access/count"
+import { redirect } from "next/navigation"
+import { useRouter } from "next/navigation"
 
-const MAX_BANNER_SIZE = 5 * 1024 * 1024; // 5 MB, matches /api/upload
+const MAX_BANNER_SIZE = 5 * 1024 * 1024 // 5 MB, matches /api/upload
 
 export default function PostTuitionForm({
   user,
   onCreated,
 }: {
-  user: DashboardUser;
-  onCreated?: (tuition: TuitionApplication) => void;
+  user: DashboardUser
+  onCreated?: (tuition: TuitionApplication) => void
 }) {
-  const [mode, setMode] = useState<TuitionMode>("Online");
-  const [bannerUrl, setBannerUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
+  const [mode, setMode] = useState<TuitionMode>("Online")
+  const [bannerUrl, setBannerUrl] = useState("")
+  const [uploading, setUploading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const router = useRouter()
   const handleBannerChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
+    const input = event.currentTarget
+    const file = input.files?.[0]
     // Reset so choosing the same file again still fires onChange.
-    input.value = "";
+    input.value = ""
 
-    if (!file) return;
+    if (!file) return
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please choose a JPG, PNG, WEBP or GIF image.");
-      return;
+      toast.error("Please choose a JPG, PNG, WEBP or GIF image.")
+      return
     }
 
     if (file.size > MAX_BANNER_SIZE) {
-      toast.error("Banner image must be 5 MB or smaller.");
-      return;
+      toast.error("Banner image must be 5 MB or smaller.")
+      return
     }
 
-    setUploading(true);
+    setUploading(true)
 
     try {
-      const body = new FormData();
-      body.append("image", file);
+      const body = new FormData()
+      body.append("image", file)
 
-      const res = await fetch("/api/upload", { method: "POST", body });
-      const json = (await res.json()) as { url?: string; message?: string };
+      const res = await fetch("/api/upload", { method: "POST", body })
+      const json = (await res.json()) as { url?: string; message?: string }
 
       if (!res.ok || !json.url) {
-        throw new Error(json.message ?? "Could not upload the banner image.");
+        throw new Error(json.message ?? "Could not upload the banner image.")
       }
 
-      setBannerUrl(json.url);
-      toast.success("Banner image uploaded.");
+      setBannerUrl(json.url)
+      toast.success("Banner image uploaded.")
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "Could not upload the banner image."
-      );
+      )
     } finally {
-      setUploading(false);
+      setUploading(false)
     }
-  };
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault()
 
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const form = event.currentTarget
+    const data = new FormData(form)
 
-    const title = String(data.get("title") ?? "").trim();
-    const subject = String(data.get("subject") ?? "").trim();
-    const classLevel = String(data.get("classLevel") ?? "").trim();
-    const location = String(data.get("location") ?? "").trim();
-    const monthlyFee = Number(data.get("monthlyFee") ?? 0);
-    const daysPerWeek = Number(data.get("daysPerWeek") ?? 0);
-    const description = String(data.get("description") ?? "").trim();
+    const title = String(data.get("title") ?? "").trim()
+    const subject = String(data.get("subject") ?? "").trim()
+    const classLevel = String(data.get("classLevel") ?? "").trim()
+    const location = String(data.get("location") ?? "").trim()
+    const monthlyFee = Number(data.get("monthlyFee") ?? 0)
+    const daysPerWeek = Number(data.get("daysPerWeek") ?? 0)
+    const description = String(data.get("description") ?? "").trim()
+
+    // check findoout id is premium or not
+    const PremiumResult = await getUserPremiumById(user.id)
+    console.log("PremiumResult :", PremiumResult)
+
+    // directed to payment page if number of post is greater than 2
+    const tutorPostCount = await getTutorTutionCount(user.email)
+    console.log("tutorApplicationCount: ", tutorPostCount)
+
+    // if id is not premium and free post is greater that two then redirect to payment page
+    if (!PremiumResult.premium && tutorPostCount >= 2) {
+      toast.error("You have already reached the limit")
+      router.push("/payment")
+      return
+    }
 
     if (!title || !subject) {
-      toast.error("Tuition title and subject are required.");
-      return;
+      toast.error("Tuition title and subject are required.")
+      return
     }
 
     if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) {
-      toast.error("Monthly fee must be greater than 0.");
-      return;
+      toast.error("Monthly fee must be greater than 0.")
+      return
     }
 
     if (!Number.isFinite(daysPerWeek) || daysPerWeek < 1 || daysPerWeek > 7) {
-      toast.error("Days per week must be between 1 and 7.");
-      return;
+      toast.error("Days per week must be between 1 and 7.")
+      return
     }
 
     if (mode === "Offline" && !location) {
-      toast.error("Please add a location for an offline tuition.");
-      return;
+      toast.error("Please add a location for an offline tuition.")
+      return
     }
 
     if (uploading) {
-      toast.error("Please wait for the banner image to finish uploading.");
-      return;
+      toast.error("Please wait for the banner image to finish uploading.")
+      return
     }
 
     // Tutor identity always comes from the signed-in account, never the form.
     if (!user.email) {
-      toast.error("Your account email is missing. Please sign in again.");
-      return;
+      toast.error("Your account email is missing. Please sign in again.")
+      return
     }
 
     const payload: PostTuitionApplicationForm = {
@@ -148,30 +171,30 @@ export default function PostTuitionForm({
       tutorEmail: user.email,
       approvalStatus: "pending",
       isActive: true,
-    };
+    }
 
-    setSubmitting(true);
+    setSubmitting(true)
 
     try {
-      const created = await createTutionData(payload);
+      const created = await createTutionData(payload)
 
-      form.reset();
-      setBannerUrl("");
-      setMode("Online");
+      form.reset()
+      setBannerUrl("")
+      setMode("Online")
       toast.success(
         "Tuition submitted! It is pending admin approval before going public."
-      );
-      onCreated?.(created);
+      )
+      onCreated?.(created)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not post the tuition."
-      );
+      )
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
+  }
 
-  const busy = submitting || uploading;
+  const busy = submitting || uploading
 
   return (
     <form onSubmit={handleSubmit}>
@@ -231,8 +254,8 @@ export default function PostTuitionForm({
               <Label>Mode</Label>
               <div className="grid grid-cols-2 gap-2">
                 {(["Online", "Offline"] as const).map((option) => {
-                  const Icon = option === "Online" ? Globe : MapPin;
-                  const selected = mode === option;
+                  const Icon = option === "Online" ? Globe : MapPin
+                  const selected = mode === option
 
                   return (
                     <button
@@ -250,7 +273,7 @@ export default function PostTuitionForm({
                       <Icon className="size-4" />
                       {option}
                     </button>
-                  );
+                  )
                 })}
               </div>
             </div>
@@ -324,7 +347,9 @@ export default function PostTuitionForm({
                 <ImagePlus className="size-4" />
               </span>
               <div>
-                <p className="text-sm font-bold text-foreground">Banner image</p>
+                <p className="text-sm font-bold text-foreground">
+                  Banner image
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Uploaded to imgbb. JPG, PNG, WEBP or GIF, max 5 MB.
                 </p>
@@ -380,7 +405,9 @@ export default function PostTuitionForm({
                     <UploadCloud className="size-6 text-muted-foreground" />
                   )}
                   <span className="text-xs font-semibold text-foreground">
-                    {uploading ? "Uploading image..." : "Click to upload a banner"}
+                    {uploading
+                      ? "Uploading image..."
+                      : "Click to upload a banner"}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
                     Recommended 1200 × 630 px
@@ -435,8 +462,8 @@ export default function PostTuitionForm({
           variant="outline"
           disabled={busy}
           onClick={() => {
-            setBannerUrl("");
-            setMode("Online");
+            setBannerUrl("")
+            setMode("Online")
           }}
           className="h-10"
         >
@@ -455,5 +482,5 @@ export default function PostTuitionForm({
         </Button>
       </div>
     </form>
-  );
+  )
 }

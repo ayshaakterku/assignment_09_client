@@ -15,7 +15,7 @@ export const getTutorTutionCount = async (
   tutorEmail: string
 ): Promise<number> => {
   const res = await fetch(
-    `${BASE_URL}/tution/count?studentEmail=${encodeURIComponent(tutorEmail)}`
+    `${BASE_URL}/tution/count?tutorEmail=${encodeURIComponent(tutorEmail)}`
   );
   if (!res.ok) throw new Error(`Failed to fetch tuition count (${res.status})`);
   const data = await res.json();
