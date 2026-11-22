@@ -101,6 +101,7 @@ export default function ContactTutorDialog({
       student.email
     )
     if (studentApplicationCount >= 2) {
+      toast.error("You have already reached the limit")
       redirect("/payment")
       return
     } else {
