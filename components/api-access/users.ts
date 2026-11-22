@@ -9,3 +9,9 @@ export const getUser = async (query = ""): Promise<IUser[]> => {
   }
   return res.json()
 }
+
+// for premium user get pass
+export const getUserPremiumById = async(userId: string)=>{
+  const response = await fetch(`${BASE_URL}/users/${userId}/premium`);
+  return response.json();
+}
