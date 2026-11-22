@@ -105,7 +105,8 @@ export default function ContactTutorDialog({
     const studentApplicationCount = await getStudentApplicationCount(
       student.email
     )
-    // without studen cannot add tution
+    
+    // without student cannot add tution
     if (student.role !== "student"){
       toast.info("You need student account")
       redirect('/sign-up')
