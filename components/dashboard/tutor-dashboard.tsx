@@ -25,10 +25,13 @@ import { toast } from "react-toastify";
 
 import {
   deleteTutionData,
+  updateApplicationStatus,
   updateTutionData,
+  type ApplicationDecision,
   type TutionUpdate,
 } from "@/components/api-update/tution-update";
 import { updateTutorActiveStatus } from "@/components/api-update/tutor-update";
+import type { StudentTuitionApplication } from "@/components/type/application";
 import type { TuitionApplication } from "@/components/type/tution";
 import {
   AlertDialog,
@@ -63,6 +66,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import DashboardShell, { type PreviewControls } from "./dashboard-shell";
+import PostTuitionForm from "./post-tuition-form";
 import ProfileForm from "./profile-form";
 import {
   PageHeading,
@@ -74,106 +78,12 @@ import {
 } from "./ui";
 import type { DashboardNavItem, DashboardUser } from "./types";
 
-type ApplicantStatus = "accepted" | "pending" | "rejected";
-
-type Applicant = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  applied: string;
-  course: string;
-  subject: string;
-  schedule: string;
-  status: ApplicantStatus;
-};
-
 const navItems: DashboardNavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutGrid, group: "main" },
   { id: "post", label: "Post Tuition", icon: Plus, group: "main" },
   { id: "tuitions", label: "My Tuitions", icon: BookOpen, group: "main" },
   { id: "applicants", label: "Applicants", icon: Users, group: "main" },
   { id: "profile", label: "Update Profile", icon: Settings, group: "preferences" },
-];
-
-const initialApplicants: Applicant[] = [
-  {
-    id: 1,
-    name: "Isa Rahman",
-    email: "isa@gmail.com",
-    phone: "01625887883",
-    applied: "Nov 10, 2026",
-    course: "Full-Stack JavaScript & MERN Stack Intensive",
-    subject: "Web Development",
-    schedule: "Flexible timing",
-    status: "accepted",
-  },
-  {
-    id: 2,
-    name: "Tanvir Hossain",
-    email: "tanvir@student.com",
-    phone: "+880-1700-000006",
-    applied: "Nov 7, 2026",
-    course: "Python Mastery: From Fundamentals to Data Science",
-    subject: "Programming (Python)",
-    schedule: "Flexible timing",
-    status: "pending",
-  },
-  {
-    id: 3,
-    name: "Nusrat Jahan",
-    email: "student@mentorlagbe.com",
-    phone: "+880-1700-000004",
-    applied: "Nov 5, 2026",
-    course: "Complete SSC Physics: Concept Clearing & Notes",
-    subject: "Physics",
-    schedule: "Flexible timing",
-    status: "pending",
-  },
-  {
-    id: 4,
-    name: "Sadia Islam",
-    email: "sadia@student.com",
-    phone: "+880-1700-000007",
-    applied: "Nov 4, 2026",
-    course: "IELTS Academic & General Training: Band 7.5+",
-    subject: "IELTS Preparation",
-    schedule: "Flexible timing",
-    status: "accepted",
-  },
-  {
-    id: 5,
-    name: "Anika Rahman",
-    email: "anika@student.com",
-    phone: "+880-1700-000005",
-    applied: "Nov 2, 2026",
-    course: "Complete SSC Physics: Concept Clearing & Notes",
-    subject: "Physics",
-    schedule: "Flexible timing",
-    status: "accepted",
-  },
-  {
-    id: 6,
-    name: "Nusrat Jahan",
-    email: "student@mentorlagbe.com",
-    phone: "+880-1700-000004",
-    applied: "Oct 31, 2026",
-    course: "Mastering Advanced Mathematics for HSC & Admission",
-    subject: "Mathematics",
-    schedule: "Flexible timing",
-    status: "accepted",
-  },
-  {
-    id: 7,
-    name: "Nusrat Jahan",
-    email: "student@mentorlagbe.com",
-    phone: "+880-1700-000004",
-    applied: "Oct 26, 2026",
-    course: "Modern Web Development with Next.js, React",
-    subject: "Programming (Next.js)",
-    schedule: "Flexible timing",
-    status: "rejected",
-  },
 ];
 
 const tutorControls = [
@@ -231,6 +141,8 @@ export default function TutorDashboard({
   preview,
   tuitions,
   tuitionsError,
+  applications: initialApplications,
+  applicationsError,
 }: {
   user: DashboardUser;
   plan?: string | null;
@@ -238,12 +150,15 @@ export default function TutorDashboard({
   preview?: PreviewControls | null;
   tuitions: TuitionApplication[];
   tuitionsError?: string | null;
+  applications: StudentTuitionApplication[];
+  applicationsError?: string | null;
 }) {
   const [active, setActive] = useState("overview");
-  const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
-  const [posting, setPosting] = useState(false);
+  const [applications, setApplications] =
+    useState<StudentTuitionApplication[]>(initialApplications);
   const [items, setItems] = useState<TuitionApplication[]>(tuitions);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [applicantBusyId, setApplicantBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<TuitionApplication | null>(null);
   const [viewing, setViewing] = useState<TuitionApplication | null>(null);
   const [deleting, setDeleting] = useState<TuitionApplication | null>(null);
@@ -256,29 +171,39 @@ export default function TutorDashboard({
       tuition.isActive &&
       normalizeApproval(tuition.approvalStatus) === "approved"
   ).length;
+  const pendingApplicants = applications.filter(
+    (application) => application.status === "pending"
+  ).length;
 
-  const respond = (id: number, status: ApplicantStatus) => {
-    setApplicants((current) =>
-      current.map((applicant) =>
-        applicant.id === id ? { ...applicant, status } : applicant
-      )
-    );
-    toast.success(
-      status === "accepted"
-        ? "Applicant accepted successfully."
-        : "Applicant rejected."
-    );
-  };
+  const respond = async (
+    application: StudentTuitionApplication,
+    status: ApplicationDecision
+  ) => {
+    if (applicantBusyId) return;
 
-  const handlePostTuition = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setPosting(true);
+    setApplicantBusyId(application._id);
 
-    window.setTimeout(() => {
-      setPosting(false);
-      toast.success("Tuition posted successfully (demo).");
-      setActive("tuitions");
-    }, 600);
+    try {
+      await updateApplicationStatus(application._id, status);
+      setApplications((current) =>
+        current.map((item) =>
+          item._id === application._id ? { ...item, status } : item
+        )
+      );
+      toast.success(
+        status === "accepted"
+          ? "Applicant accepted successfully."
+          : "Applicant rejected."
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not update the application status."
+      );
+    } finally {
+      setApplicantBusyId(null);
+    }
   };
 
   const toggleActive = async (tuition: TuitionApplication) => {
@@ -424,8 +349,12 @@ export default function TutorDashboard({
             />
             <StatCard
               label="Total Applicants"
-              value={applicants.length}
-              hint="Interested students applied across all posts"
+              value={applications.length}
+              hint={
+                pendingApplicants > 0
+                  ? `${pendingApplicants} awaiting your review`
+                  : "Interested students across all posts"
+              }
               icon={Users}
               tone="blue"
             />
@@ -603,6 +532,10 @@ export default function TutorDashboard({
                                 {tuition.title}
                               </p>
                               <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <span className="shrink-0 font-mono text-[10px] tracking-tight text-purple-700 dark:text-purple-300">
+                                  {tuition.tutionId || "—"}
+                                </span>
+                                <span className="text-border">|</span>
                                 {tuition.mode === "Online" ? (
                                   <Globe className="size-3 shrink-0" />
                                 ) : (
@@ -716,97 +649,149 @@ export default function TutorDashboard({
             subtitle="Review candidate applications submitted to your courses and approve or decline students."
           />
 
-          <Panel className="mt-6 overflow-hidden">
-            <Table className="min-w-[1000px]">
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="px-4">Student</TableHead>
-                  <TableHead className="px-4">Contact Info</TableHead>
-                  <TableHead className="px-4">Tuition Course</TableHead>
-                  <TableHead className="px-4">Schedule</TableHead>
-                  <TableHead className="px-4">Status</TableHead>
-                  <TableHead className="px-4 text-right lg:sticky lg:right-0 lg:bg-muted lg:shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.18)]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applicants.map((applicant) => (
-                  <TableRow key={applicant.id}>
-                    <TableCell className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar
-                          name={applicant.name}
-                          className="size-9 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="whitespace-nowrap font-semibold text-foreground">
-                            {applicant.name}
-                          </p>
-                          <p className="whitespace-nowrap text-xs text-muted-foreground">
-                            Applied {applicant.applied}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-4">
-                      <p className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
-                        <Mail className="size-3.5 shrink-0" />
-                        {applicant.email}
-                      </p>
-                      <p className="mt-1 flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
-                        <Phone className="size-3.5 shrink-0" />
-                        {applicant.phone}
-                      </p>
-                    </TableCell>
-                    <TableCell className="px-4 py-4">
-                      <p className="max-w-[240px] truncate font-medium text-foreground">
-                        {applicant.course}
-                      </p>
-                      <p className="mt-0.5 text-xs font-medium text-fuchsia-600 dark:text-fuchsia-300">
-                        {applicant.subject}
-                      </p>
-                    </TableCell>
-                    <TableCell className="px-4 py-4 text-xs whitespace-nowrap text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="size-3.5 shrink-0" />
-                        {applicant.schedule}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-4">
-                      <StatusBadge status={applicant.status} />
-                    </TableCell>
-                    <TableCell className="px-4 py-4 lg:sticky lg:right-0 lg:bg-card lg:shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.18)]">
-                      {applicant.status === "pending" ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => respond(applicant.id, "accepted")}
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap text-white transition hover:bg-emerald-700"
-                          >
-                            <Check className="size-3" />
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => respond(applicant.id, "rejected")}
-                            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap text-white transition hover:bg-red-700"
-                          >
-                            <X className="size-3" />
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-right text-xs font-medium whitespace-nowrap text-muted-foreground italic">
-                          Responded
-                        </p>
-                      )}
-                    </TableCell>
+          {applicationsError ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                  <X className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  Could not load your applicants
+                </p>
+                <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+                  {applicationsError}
+                </p>
+              </div>
+            </Panel>
+          ) : applications.length === 0 ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                  <Users className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  No applicants yet
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                  Students who apply to your approved tuitions will appear here.
+                </p>
+              </div>
+            </Panel>
+          ) : (
+            <Panel className="mt-6 overflow-hidden">
+              <Table className="min-w-[1080px]">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="px-4">Student</TableHead>
+                    <TableHead className="px-4">Contact Info</TableHead>
+                    <TableHead className="px-4">Tuition Course</TableHead>
+                    <TableHead className="px-4">Schedule</TableHead>
+                    <TableHead className="px-4">Status</TableHead>
+                    <TableHead className="px-4 text-right lg:sticky lg:right-0 lg:bg-muted lg:shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.18)]">
+                      Actions
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Panel>
+                </TableHeader>
+                <TableBody>
+                  {applications.map((application) => {
+                    const busy = applicantBusyId === application._id;
+
+                    return (
+                      <TableRow key={application._id}>
+                        <TableCell className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <UserAvatar
+                              name={application.studentName}
+                              className="size-9 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="whitespace-nowrap font-semibold text-foreground">
+                                {application.studentName}
+                              </p>
+                              <p className="whitespace-nowrap text-xs text-muted-foreground">
+                                Applied {formatDate(application.appliedAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <p className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
+                            <Mail className="size-3.5 shrink-0" />
+                            {application.studentEmail || "—"}
+                          </p>
+                          <p className="mt-1 flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
+                            <Phone className="size-3.5 shrink-0" />
+                            {application.studentPhone || "—"}
+                          </p>
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <p className="max-w-[240px] truncate font-medium text-foreground">
+                            {application.tuitionTitle}
+                          </p>
+                          <p className="mt-0.5 text-xs font-medium text-fuchsia-600 dark:text-fuchsia-300">
+                            {application.subject}
+                            <span className="ml-1.5 font-normal text-muted-foreground">
+                              · {formatFee(application.monthlyFee)}/mo
+                            </span>
+                          </p>
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5 whitespace-nowrap">
+                            <Clock className="size-3.5 shrink-0" />
+                            {application.preferredSchedule || "Flexible timing"}
+                          </span>
+                          {application.studentNote ? (
+                            <p
+                              className="mt-1 max-w-[200px] truncate text-[11px] italic"
+                              title={application.studentNote}
+                            >
+                              &ldquo;{application.studentNote}&rdquo;
+                            </p>
+                          ) : null}
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4">
+                          <StatusBadge status={application.status} />
+                        </TableCell>
+
+                        <TableCell className="px-4 py-4 lg:sticky lg:right-0 lg:bg-card lg:shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.18)]">
+                          {application.status === "pending" ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => respond(application, "accepted")}
+                                disabled={busy}
+                                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Check className="size-3" />
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => respond(application, "rejected")}
+                                disabled={busy}
+                                className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <X className="size-3" />
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-right text-xs font-medium whitespace-nowrap text-muted-foreground italic">
+                              {busy ? "Updating..." : "Responded"}
+                            </p>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Panel>
+          )}
         </>
       ) : null}
 
@@ -817,87 +802,15 @@ export default function TutorDashboard({
             subtitle="Publish a new tuition so students in your area can apply."
           />
 
-          <Panel className="mt-6">
-            <form onSubmit={handlePostTuition} className="p-5 sm:p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="tuition-title">Tuition title</Label>
-                  <Input
-                    id="tuition-title"
-                    name="title"
-                    required
-                    placeholder="e.g. Complete SSC Physics: Concept Clearing & Notes"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tuition-subject">Subject</Label>
-                  <Input
-                    id="tuition-subject"
-                    name="subject"
-                    required
-                    placeholder="Physics"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tuition-class">Class / level</Label>
-                  <Input
-                    id="tuition-class"
-                    name="classLevel"
-                    placeholder="Class 9 – 10"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tuition-budget">Monthly budget</Label>
-                  <Input
-                    id="tuition-budget"
-                    name="budget"
-                    placeholder="৳ 5,000"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tuition-location">Location</Label>
-                  <Input
-                    id="tuition-location"
-                    name="location"
-                    placeholder="Uttara, Dhaka"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tuition-schedule">Schedule</Label>
-                  <Input
-                    id="tuition-schedule"
-                    name="schedule"
-                    placeholder="Flexible timing"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="tuition-description">Description</Label>
-                  <Textarea
-                    id="tuition-description"
-                    name="description"
-                    rows={4}
-                    placeholder="Describe the tuition, requirements and what students can expect."
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={posting}
-                  className="h-10 rounded-lg bg-purple-800 px-5 font-semibold text-white hover:bg-purple-700 dark:bg-fuchsia-700 dark:hover:bg-fuchsia-600"
-                >
-                  {posting ? "Publishing..." : "Publish tuition"}
-                </Button>
-              </div>
-            </form>
-          </Panel>
+          <div className="mt-6">
+            <PostTuitionForm
+              user={user}
+              onCreated={(created) => {
+                setItems((current) => [created, ...current]);
+                setActive("tuitions");
+              }}
+            />
+          </div>
         </>
       ) : null}
 
@@ -916,6 +829,7 @@ export default function TutorDashboard({
               <DialogHeader>
                 <DialogTitle className="pr-8">{viewing.title}</DialogTitle>
                 <DialogDescription>
+                  {viewing.tutionId ? `${viewing.tutionId} · ` : ""}
                   {viewing.subject}
                   {viewing.classLevel ? ` · ${viewing.classLevel}` : ""}
                 </DialogDescription>
@@ -1065,6 +979,7 @@ export default function TutorDashboard({
                     name="monthlyFee"
                     type="number"
                     min={0}
+                    max={50000}
                     defaultValue={editing.monthlyFee}
                     className="h-9"
                   />

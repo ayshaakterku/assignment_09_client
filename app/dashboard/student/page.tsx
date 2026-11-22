@@ -1,23 +1,37 @@
-"use client";
+import { headers } from "next/headers";
 
-import StudentDashboard from "@/components/dashboard/student-dashboard";
-import {
-  DashboardLoading,
-  useDashboardSession,
-} from "@/components/dashboard/use-dashboard-session";
+import { getCollectionByStudent } from "@/components/api-access/tutions";
+import StudentPageClient from "@/components/dashboard/student-page-client";
+import type { StudentTuitionApplication } from "@/components/type/application";
+import { auth } from "@/lib/auth";
 
-export default function StudentDashboardPage() {
-  const { user, isReady, signOut, preview } = useDashboardSession("student");
+export const dynamic = "force-dynamic";
 
-  if (!isReady || !user) {
-    return <DashboardLoading />;
+export default async function StudentDashboardPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const email = session?.user?.email ?? "";
+
+  let applications: StudentTuitionApplication[] = [];
+  let applicationsError: string | null = null;
+
+  if (email) {
+    try {
+      // Only the signed-in student's own applications.
+      applications = await getCollectionByStudent(
+        `studentEmail=${encodeURIComponent(email)}`
+      );
+    } catch (error) {
+      applicationsError =
+        error instanceof Error
+          ? error.message
+          : "Could not load your applications from the server.";
+    }
   }
 
   return (
-    <StudentDashboard
-      user={{ name: user.name, email: user.email, image: user.image }}
-      onSignOut={signOut}
-      preview={preview}
+    <StudentPageClient
+      applications={applications}
+      applicationsError={applicationsError}
     />
   );
 }

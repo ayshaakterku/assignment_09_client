@@ -16,8 +16,10 @@ import {
   Settings,
   Sparkles,
   Wallet,
+  X,
 } from "lucide-react";
 
+import type { StudentTuitionApplication } from "@/components/type/application";
 import {
   Table,
   TableBody,
@@ -46,32 +48,21 @@ const navItems: DashboardNavItem[] = [
   { id: "profile", label: "Update Profile", icon: Settings, group: "preferences" },
 ];
 
-const applications = [
-  {
-    id: "APP-1042",
-    tuition: "Complete SSC Physics: Concept Clearing & Notes",
-    subject: "Physics",
-    tutor: "Nusrat Jahan",
-    applied: "Nov 05, 2026",
-    status: "pending",
-  },
-  {
-    id: "APP-1038",
-    tuition: "IELTS Academic & General Training: Band 7.5+",
-    subject: "IELTS Preparation",
-    tutor: "Sadia Islam",
-    applied: "Nov 04, 2026",
-    status: "accepted",
-  },
-  {
-    id: "APP-1031",
-    tuition: "Full-Stack JavaScript & MERN Stack Intensive",
-    subject: "Web Development",
-    tutor: "Isa Rahman",
-    applied: "Nov 01, 2026",
-    status: "rejected",
-  },
-];
+function formatFee(value: number) {
+  return `$${Number(value || 0).toLocaleString("en-US")}`;
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
 
 const savedTuitions = [
   {
@@ -148,15 +139,33 @@ function QuickAction({
 
 export default function StudentDashboard({
   user,
+  plan,
   onSignOut,
   preview,
+  applications,
+  applicationsError,
 }: {
   user: DashboardUser;
+  plan?: string | null;
   onSignOut: () => void;
   preview?: PreviewControls | null;
+  applications: StudentTuitionApplication[];
+  applicationsError?: string | null;
 }) {
   const [active, setActive] = useState("overview");
   const firstName = user.name?.split(" ")[0] || "there";
+
+  const planLabel = (plan || "free").toLowerCase();
+  const isPro = planLabel !== "free";
+  const acceptedCount = applications.filter(
+    (application) => application.status === "accepted"
+  ).length;
+  const pendingCount = applications.filter(
+    (application) => application.status === "pending"
+  ).length;
+  const acceptedRate = applications.length
+    ? Math.round((acceptedCount / applications.length) * 100)
+    : 0;
 
   return (
     <DashboardShell
@@ -185,29 +194,33 @@ export default function StudentDashboard({
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Total Applied"
-              value="3"
+              value={applications.length}
               hint="Total tuition posts applied for."
               icon={FileText}
               tone="blue"
             />
             <StatCard
               label="Accepted"
-              value="1"
-              hint="33% rate · Approved applications by tutors."
+              value={acceptedCount}
+              hint={`${acceptedRate}% rate · Approved applications by tutors.`}
               icon={CheckCircle2}
               tone="emerald"
             />
             <StatCard
               label="Pending"
-              value="1"
+              value={pendingCount}
               hint="Awaiting tutor review and confirmation."
               icon={Clock}
               tone="amber"
             />
             <StatCard
               label="Current Plan"
-              value="FREE"
-              hint="Upgrade to Pro for priority perks."
+              value={planLabel.toUpperCase()}
+              hint={
+                isPro
+                  ? "Priority perks are active on your account."
+                  : "Upgrade to Pro for priority perks."
+              }
               icon={Crown}
               tone="fuchsia"
             />
@@ -269,45 +282,94 @@ export default function StudentDashboard({
             }
           />
 
-          <Panel className="mt-6 overflow-hidden">
-            <PanelHeader
-              title="Application history"
-              description="Track the status of each application."
-            />
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="px-5">Tuition</TableHead>
-                  <TableHead className="px-5">Tutor</TableHead>
-                  <TableHead className="px-5">Applied on</TableHead>
-                  <TableHead className="px-5">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applications.map((application) => (
-                  <TableRow key={application.id}>
-                    <TableCell className="px-5 py-4">
-                      <p className="max-w-xs truncate font-semibold text-foreground">
-                        {application.tuition}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {application.subject} · {application.id}
-                      </p>
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">
-                      {application.tutor}
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">
-                      {application.applied}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <StatusBadge status={application.status} />
-                    </TableCell>
+          {applicationsError ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                  <X className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  Could not load your applications
+                </p>
+                <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+                  {applicationsError}
+                </p>
+              </div>
+            </Panel>
+          ) : applications.length === 0 ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                  <FileText className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  No applications yet
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                  Apply to a tuition and your application status will show up
+                  here.
+                </p>
+                <Link
+                  href="/browse-tuitions"
+                  className={`${primaryButtonClass} mt-4`}
+                >
+                  <Search className="size-4" />
+                  Browse Tuitions
+                </Link>
+              </div>
+            </Panel>
+          ) : (
+            <Panel className="mt-6 overflow-hidden">
+              <PanelHeader
+                title="Application history"
+                description="Track the status of each application."
+              />
+              <Table className="min-w-[900px]">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="px-5">Tuition</TableHead>
+                    <TableHead className="px-5">Tutor</TableHead>
+                    <TableHead className="px-5">Applied on</TableHead>
+                    <TableHead className="px-5">Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Panel>
+                </TableHeader>
+                <TableBody>
+                  {applications.map((application) => (
+                    <TableRow key={application._id}>
+                      <TableCell className="px-5 py-4">
+                        <p className="max-w-xs truncate font-semibold text-foreground">
+                          {application.tuitionTitle}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {application.subject}
+                          <span className="ml-1.5">
+                            · {formatFee(application.monthlyFee)}/mo
+                          </span>
+                        </p>
+                        {application.studentNote ? (
+                          <p
+                            className="mt-1 max-w-xs truncate text-[11px] italic text-muted-foreground"
+                            title={application.studentNote}
+                          >
+                            &ldquo;{application.studentNote}&rdquo;
+                          </p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-muted-foreground">
+                        {application.tutorEmail || "—"}
+                      </TableCell>
+                      <TableCell className="px-5 py-4 whitespace-nowrap text-muted-foreground">
+                        {formatDate(application.appliedAt)}
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <StatusBadge status={application.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Panel>
+          )}
         </>
       ) : null}
 
