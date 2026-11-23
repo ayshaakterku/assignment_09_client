@@ -1,8 +1,11 @@
 import Banner from "@/components/HomeBanner"
-import { Button } from "@/components/ui/button"
+import HowItWorks from "@/components/HowItWorks"
 
 export default function Page() {
   return (
-    <Banner/>
+    <>
+      <Banner />
+      <HowItWorks />
+    </>
   )
 }
