@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import ThemedToastContainer from "@/components/themed-toaster";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'})
@@ -28,6 +29,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SiteHeader />
           {children}
+          <SiteFooter />
           <ThemedToastContainer />
         </ThemeProvider>
       </body>
