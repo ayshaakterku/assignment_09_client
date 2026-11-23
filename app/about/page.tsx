@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
+import type { Metadata } from "next"
+import Image from "next/image"
+import Link from "next/link"
 import {
   ArrowRight,
   BadgeCheck,
@@ -14,13 +14,16 @@ import {
   Star,
   Users,
   Wallet,
-} from "lucide-react";
+} from "lucide-react"
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
+import AboutTutorCta from "@/components/about-tutor-cta"
 
 export const metadata: Metadata = {
   title: "About | MentorLagbe",
   description:
     "MentorLagbe connects students, parents, and qualified tutors across Bangladesh for home and online tuitions.",
-};
+}
 
 // Sample figures — replace with real counts from your API / database.
 const stats = [
@@ -28,7 +31,7 @@ const stats = [
   { value: "8,500+", label: "Registered tutors" },
   { value: "64", label: "Districts covered" },
   { value: "4.9/5", label: "Average tutor rating" },
-];
+]
 
 const values = [
   {
@@ -55,28 +58,28 @@ const values = [
     description:
       "Card payments run through Stripe. MentorLagbe never stores your card number or security code.",
   },
-];
+]
 
 const studentPoints = [
   "Browse verified home and online tuitions",
   "Filter by subject, class, area, and schedule",
   "Apply in one click and track every application",
-];
+]
 
 const tutorPoints = [
   "Post a tuition batch in a few minutes",
   "Review student applications in one dashboard",
   "Accept the best match and start teaching",
-];
+]
 
-const HERO_IMG = "/tuition%20student%20training.png";
-const STORY_IMG = "/summer%20vacation%20teache.png";
+const HERO_IMG = "/tuition%20student%20training.png"
+const STORY_IMG = "/summer%20vacation%20teache.png"
 
 const primaryCta =
-  "inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#8a1f8a] to-[#4c0d52] px-7 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-[0_10px_24px_-6px_rgba(138,31,138,0.55)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#150a24]";
+  "inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#8a1f8a] to-[#4c0d52] px-7 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-[0_10px_24px_-6px_rgba(138,31,138,0.55)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#150a24]"
 
 const secondaryCta =
-  "inline-flex items-center gap-2 rounded-full border border-purple-300 bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.12em] text-purple-900 transition hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 focus-visible:ring-offset-2 dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus-visible:ring-offset-background";
+  "inline-flex items-center gap-2 rounded-full border border-purple-300 bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.12em] text-purple-900 transition hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 focus-visible:ring-offset-2 dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus-visible:ring-offset-background"
 
 function ArrowIcon() {
   return (
@@ -88,19 +91,29 @@ function ArrowIcon() {
       strokeWidth={2.5}
       aria-hidden
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6l6 6-6 6" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 12h14m-6-6l6 6-6 6"
+      />
     </svg>
-  );
+  )
 }
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+  const userRole = session?.user.role
+  // console.log("user: ", user);
+
   return (
     <>
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#f3f6fd] via-[#eef2fb] to-[#e8eefb] dark:from-[#1a0f2e] dark:via-[#150a24] dark:to-[#12081f]">
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-32 -top-40 size-[520px] rounded-full bg-[#dfe8fb] dark:bg-fuchsia-800/15" />
-          <div className="absolute -left-32 bottom-4 size-80 rounded-full bg-[#e3eafa] dark:bg-purple-900/15" />
+          <div className="absolute -top-40 -right-32 size-[520px] rounded-full bg-[#dfe8fb] dark:bg-fuchsia-800/15" />
+          <div className="absolute bottom-4 -left-32 size-80 rounded-full bg-[#e3eafa] dark:bg-purple-900/15" />
         </div>
 
         <svg
@@ -114,12 +127,12 @@ export default function AboutPage() {
 
         <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 pt-12 pb-24 sm:px-6 sm:pt-16 md:grid-cols-[1.1fr_0.9fr] lg:px-8">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-fuchsia-700 backdrop-blur dark:border-fuchsia-500/30 dark:bg-white/10 dark:text-pink-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-200 bg-white/80 px-3 py-1 text-[11px] font-bold tracking-[0.14em] text-fuchsia-700 uppercase backdrop-blur dark:border-fuchsia-500/30 dark:bg-white/10 dark:text-pink-300">
               <Sparkles className="size-3.5" />
               About MentorLagbe
             </span>
 
-            <h1 className="mt-4 text-3xl font-extrabold leading-[1.15] tracking-tight sm:text-4xl lg:text-[42px]">
+            <h1 className="mt-4 text-3xl leading-[1.15] font-extrabold tracking-tight sm:text-4xl lg:text-[42px]">
               <span className="text-purple-800 dark:text-purple-300">
                 The right tutor.
               </span>{" "}
@@ -184,7 +197,7 @@ export default function AboutPage() {
               />
             </div>
 
-            <div className="absolute left-0 top-2 flex items-center gap-2 rounded-2xl border border-white/70 bg-white/95 px-3 py-2.5 shadow-lg shadow-purple-900/10 backdrop-blur dark:border-white/15 dark:bg-[#1d1130]/95">
+            <div className="absolute top-2 left-0 flex items-center gap-2 rounded-2xl border border-white/70 bg-white/95 px-3 py-2.5 shadow-lg shadow-purple-900/10 backdrop-blur dark:border-white/15 dark:bg-[#1d1130]/95">
               <span className="inline-flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
                 <BadgeCheck className="size-5" />
               </span>
@@ -229,7 +242,7 @@ export default function AboutPage() {
                   <p className="text-2xl font-extrabold tracking-tight text-purple-900 sm:text-3xl dark:text-white">
                     {stat.value}
                   </p>
-                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 sm:text-xs dark:text-zinc-400">
+                  <p className="mt-1 text-[11px] font-semibold tracking-wide text-zinc-500 uppercase sm:text-xs dark:text-zinc-400">
                     {stat.label}
                   </p>
                 </dd>
@@ -272,7 +285,7 @@ export default function AboutPage() {
 
           {/* copy */}
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-fuchsia-700 dark:text-pink-300">
+            <span className="text-[11px] font-bold tracking-[0.14em] text-fuchsia-700 uppercase dark:text-pink-300">
               Our mission
             </span>
             <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#0f2747] sm:text-3xl dark:text-white">
@@ -322,12 +335,12 @@ export default function AboutPage() {
       {/* ================= VALUES ================= */}
       <section className="relative overflow-hidden bg-gradient-to-b from-background to-purple-50/50 py-16 sm:py-20 dark:to-purple-950/20">
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-24 top-10 size-72 rounded-full bg-fuchsia-100/70 blur-3xl dark:bg-fuchsia-900/10" />
+          <div className="absolute top-10 -right-24 size-72 rounded-full bg-fuchsia-100/70 blur-3xl dark:bg-fuchsia-900/10" />
         </div>
 
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-fuchsia-700 dark:text-pink-300">
+            <span className="text-[11px] font-bold tracking-[0.14em] text-fuchsia-700 uppercase dark:text-pink-300">
               What we stand for
             </span>
             <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#0f2747] sm:text-3xl dark:text-white">
@@ -341,7 +354,7 @@ export default function AboutPage() {
 
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {values.map((value) => {
-              const Icon = value.icon;
+              const Icon = value.icon
               return (
                 <article
                   key={value.title}
@@ -357,7 +370,7 @@ export default function AboutPage() {
                     {value.description}
                   </p>
                 </article>
-              );
+              )
             })}
           </div>
         </div>
@@ -367,7 +380,7 @@ export default function AboutPage() {
       <section className="bg-background py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-fuchsia-700 dark:text-pink-300">
+            <span className="text-[11px] font-bold tracking-[0.14em] text-fuchsia-700 uppercase dark:text-pink-300">
               Made for both sides
             </span>
             <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#0f2747] sm:text-3xl dark:text-white">
@@ -380,7 +393,7 @@ export default function AboutPage() {
             <article className="relative overflow-hidden rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm sm:p-8 dark:border-white/10 dark:bg-white/5">
               <div
                 aria-hidden
-                className="absolute -right-10 -top-10 size-40 rounded-full bg-blue-100/70 blur-2xl dark:bg-blue-900/20"
+                className="absolute -top-10 -right-10 size-40 rounded-full bg-blue-100/70 blur-2xl dark:bg-blue-900/20"
               />
               <div className="relative">
                 <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
@@ -408,7 +421,7 @@ export default function AboutPage() {
 
                 <Link
                   href="/browse-tution"
-                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#8a1f8a] to-[#4c0d52] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-white shadow-sm transition hover:brightness-110"
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#8a1f8a] to-[#4c0d52] px-5 py-2.5 text-xs font-bold tracking-[0.1em] text-white uppercase shadow-sm transition hover:brightness-110"
                 >
                   Find a tutor
                   <ArrowRight className="size-3.5" />
@@ -420,7 +433,7 @@ export default function AboutPage() {
             <article className="relative overflow-hidden rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm sm:p-8 dark:border-white/10 dark:bg-white/5">
               <div
                 aria-hidden
-                className="absolute -right-10 -top-10 size-40 rounded-full bg-fuchsia-100/70 blur-2xl dark:bg-fuchsia-900/20"
+                className="absolute -top-10 -right-10 size-40 rounded-full bg-fuchsia-100/70 blur-2xl dark:bg-fuchsia-900/20"
               />
               <div className="relative">
                 <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-pink-300">
@@ -445,14 +458,7 @@ export default function AboutPage() {
                     </li>
                   ))}
                 </ul>
-
-                <Link
-                  href="/dashboard/tutor"
-                  className="mt-6 inline-flex items-center gap-2 rounded-full border border-purple-300 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-purple-900 transition hover:bg-purple-50 dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                >
-                  Post a tuition
-                  <ArrowRight className="size-3.5" />
-                </Link>
+                <AboutTutorCta userRole={userRole} />
               </div>
             </article>
           </div>
@@ -463,11 +469,8 @@ export default function AboutPage() {
       <section className="bg-background pb-16 sm:pb-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#6d1670] via-[#8a1f8a] to-[#3d0a45] px-6 py-12 text-center text-white shadow-2xl shadow-purple-900/25 sm:px-12">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-            >
-              <div className="absolute -right-16 -top-16 size-56 rounded-full bg-white/10 blur-2xl" />
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-16 -right-16 size-56 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-20 -left-10 size-56 rounded-full bg-pink-400/20 blur-2xl" />
             </div>
 
@@ -476,22 +479,22 @@ export default function AboutPage() {
                 Ready to make the right connection?
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/85 sm:text-base">
-                Join thousands of students and tutors already using
-                MentorLagbe. Creating an account is free — you only pay when
-                you&apos;re ready to upgrade.
+                Join thousands of students and tutors already using MentorLagbe.
+                Creating an account is free — you only pay when you&apos;re
+                ready to upgrade.
               </p>
 
               <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Link
                   href="/sign-up"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.12em] text-purple-950 shadow-lg transition hover:bg-pink-50 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-7 py-3 text-xs font-bold tracking-[0.12em] text-purple-950 uppercase shadow-lg transition hover:bg-pink-50 sm:w-auto"
                 >
                   Create free account
                   <ArrowRight className="size-4" />
                 </Link>
                 <Link
                   href="/payment"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/40 px-7 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/10 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/40 px-7 py-3 text-xs font-bold tracking-[0.12em] text-white uppercase transition hover:bg-white/10 sm:w-auto"
                 >
                   See pricing
                 </Link>
@@ -506,5 +509,5 @@ export default function AboutPage() {
         </div>
       </section>
     </>
-  );
+  )
 }
