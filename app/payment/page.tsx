@@ -1,3 +1,6 @@
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
+import Link from "next/link"
 import React from "react"
 
 const FREE_LIMIT = 2
@@ -45,7 +48,12 @@ const CheckoutPaymentPage = async ({
   searchParams: Promise<{ success?: string; canceled?: string }>
 }) => {
   const { success, canceled } = await searchParams
-  const email = "" // TODO: logged-in user's email from your auth session
+
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+  const user = session?.user
+  const email = user?.email ?? ""
 
   return (
     <section className="min-h-screen bg-gray-50 px-4 py-16 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
@@ -75,60 +83,74 @@ const CheckoutPaymentPage = async ({
         </div>
 
         <div className="mt-12 grid gap-8 md:grid-cols-2">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`relative flex flex-col rounded-2xl border p-8 shadow-sm transition hover:shadow-lg ${
-                plan.popular
-                  ? "border-indigo-500 bg-white dark:border-indigo-400 dark:bg-gray-900"
-                  : "border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
-              }`}
-            >
-              {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white">
-                  Most popular
-                </span>
-              )}
+          {plans.map((plan) => {
+            const buttonClass = `w-full rounded-lg px-4 py-3 text-center font-medium transition ${
+              plan.popular
+                ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                : "bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            }`
 
-              <h2 className="text-xl font-semibold">{plan.name}</h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {plan.tagline}
-              </p>
+            return (
+              <div
+                key={plan.id}
+                className={`relative flex flex-col rounded-2xl border p-8 shadow-sm transition hover:shadow-lg ${
+                  plan.popular
+                    ? "border-indigo-500 bg-white dark:border-indigo-400 dark:bg-gray-900"
+                    : "border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
+                }`}
+              >
+                {plan.popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white">
+                    Most popular
+                  </span>
+                )}
 
-              <div className="mt-6 flex items-end gap-1">
-                <span className="text-5xl font-bold">${plan.price}</span>
-                <span className="mb-1 text-gray-500 dark:text-gray-400">
-                  one-time
-                </span>
+                <h2 className="text-xl font-semibold">{plan.name}</h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  {plan.tagline}
+                </p>
+
+                <div className="mt-6 flex items-end gap-1">
+                  <span className="text-5xl font-bold">${plan.price}</span>
+                  <span className="mb-1 text-gray-500 dark:text-gray-400">
+                    one-time
+                  </span>
+                </div>
+
+                <ul className="mt-6 flex-1 space-y-3">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 text-green-600 dark:text-green-400">
+                        ✓
+                      </span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {user ? (
+                  <form
+                    action="/api/checkout_sessions"
+                    method="POST"
+                    className="mt-8"
+                  >
+                    <input type="hidden" name="plan" value={plan.id} />
+                    <input type="hidden" name="email" value={email} />
+                    <button type="submit" className={buttonClass}>
+                      Get {plan.name}
+                    </button>
+                  </form>
+                ) : (
+                  <Link
+                    href="/sign-in?callbackURL=/checkout"
+                    className={`mt-8 block ${buttonClass}`}
+                  >
+                    Sign in to get {plan.name}
+                  </Link>
+                )}
               </div>
-
-              <ul className="mt-6 flex-1 space-y-3">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm">
-                    <span className="mt-0.5 text-green-600 dark:text-green-400">
-                      ✓
-                    </span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <form action="/api/checkout_sessions" method="POST" className="mt-8">
-                <input type="hidden" name="plan" value={plan.id} />
-                <input type="hidden" name="email" value={email} />
-                <button
-                  type="submit"
-                  className={`w-full rounded-lg px-4 py-3 font-medium transition ${
-                    plan.popular
-                      ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                      : "bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-                  }`}
-                >
-                  Get {plan.name}
-                </button>
-              </form>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
@@ -136,7 +158,6 @@ const CheckoutPaymentPage = async ({
 }
 
 export default CheckoutPaymentPage
-
 
 // // "use client"
 
