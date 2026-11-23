@@ -28,7 +28,7 @@ export async function POST() {
 
     // Validate role
     if (!priceId) {
-      return NextResponse.json({ error: "Invalid user role" }, { status: 403 })
+      return NextResponse.json({ error: "Admin! This Is Invalid User Role" }, { status: 403 })
     }
 
     // Get origin
