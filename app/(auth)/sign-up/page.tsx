@@ -41,11 +41,11 @@ const roles: { value: Role; label: string; icon: string }[] = [
     label: "Student",
     icon: "M17 20h5v-2a4 4 0 00-5-3.9M9 12a4 4 0 100-8 4 4 0 000 8zm-7 8v-1a5 5 0 015-5h4a5 5 0 015 5v1H2z",
   },
-  {
-    value: "admin",
-    label: "Admin",
-    icon: "M12 3l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V6l8-3z",
-  },
+  // {
+  //   value: "admin",
+  //   label: "Admin",
+  //   icon: "M12 3l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V6l8-3z",
+  // },
 ]
 
 function SignUpPage() {
@@ -245,7 +245,8 @@ function SignUpPage() {
         <FieldGroup>
 
           {/* Role cards */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* <div className="grid grid-cols-3 gap-3"> */}
+          <div className="grid grid-cols-2 gap-3">
             {roles.map((r) => {
               const active = role === r.value;
               return (

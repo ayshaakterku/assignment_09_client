@@ -58,7 +58,7 @@ export default function Navbar() {
 
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
-  console.log(user);
+  // console.log(user);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -191,7 +191,7 @@ export default function Navbar() {
                   className="mt-2 w-full"
                 >
                   <LogOut className="size-4" />
-                  {signingOut ? "Signing out..." : "Sign out"}
+                  {signingOut ? "Log out..." : "Log out"}
                 </Button>
               </PopoverContent>
             </Popover>
@@ -269,7 +269,7 @@ export default function Navbar() {
                   className="flex-1"
                 >
                   <LogOut className="size-4" />
-                  {signingOut ? "Signing out..." : "Sign out"}
+                  {signingOut ? "Logging out..." : "Log out"}
                 </Button>
               </div>
             ) : (
@@ -279,7 +279,7 @@ export default function Navbar() {
                   onClick={() => setOpen(false)}
                   className={loginLinkClass}
                 >
-                  Sign in
+                  Login
                 </Link>
                 <Link
                   href="/sign-up"

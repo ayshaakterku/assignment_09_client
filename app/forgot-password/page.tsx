@@ -31,7 +31,7 @@ export default function ForgotPassword() {
         });
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(error.message ?? "Something went wrong with forgot pass.");
       } else {
         setMessage(
           "If that email exists, a reset link has been sent."
@@ -84,7 +84,7 @@ export default function ForgotPassword() {
         </button>
 
         <Link
-          href="/login"
+          href="/sign-in"
           className="text-center text-blue-500 hover:underline"
         >
           Back to Login

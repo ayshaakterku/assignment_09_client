@@ -11,7 +11,21 @@ export const getUser = async (query = ""): Promise<IUser[]> => {
 }
 
 // for premium user get pass
-export const getUserPremiumById = async(userId: string)=>{
-  const response = await fetch(`${BASE_URL}/users/${userId}/premium`);
+export const getUserPremiumById = async (
+  userId: string
+): Promise<{ premium?: boolean }> => {
+  if (!userId) {
+    return { premium: false };
+  }
+
+  const response = await fetch(
+    `${BASE_URL}/users/${encodeURIComponent(userId)}/premium`,
+    { cache: "no-store" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load premium status (${response.status})`);
+  }
+
   return response.json();
-}
+};

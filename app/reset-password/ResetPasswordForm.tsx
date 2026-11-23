@@ -47,7 +47,7 @@ export default function ResetPasswordForm() {
       });
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(error.message ?? "Something went wrong with pass reset. Try again.");
         return;
       }
 
@@ -56,7 +56,7 @@ export default function ResetPasswordForm() {
       router.push("/sign-in");
     } catch (error) {
       console.error(error);
-      setErrorMessage("Something went wrong. Try again.");
+      setErrorMessage("Something went wrong with pass reset. Try again.");
     } finally {
       setLoading(false);
     }

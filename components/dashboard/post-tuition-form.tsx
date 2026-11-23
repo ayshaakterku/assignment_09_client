@@ -112,12 +112,12 @@ export default function PostTuitionForm({
     const description = String(data.get("description") ?? "").trim()
 
     // check findoout id is premium or not
-    const PremiumResult = await getUserPremiumById(user.id)
-    console.log("PremiumResult :", PremiumResult)
+    const PremiumResult = await getUserPremiumById(user.id ?? "")
+    // console.log("PremiumResult :", PremiumResult)
 
     // directed to payment page if number of post is greater than 2
-    const tutorPostCount = await getTutorTutionCount(user.email)
-    console.log("tutorApplicationCount: ", tutorPostCount)
+    const tutorPostCount = await getTutorTutionCount(user.email ?? "")
+    // console.log("tutorApplicationCount: ", tutorPostCount)
 
     // if id is not premium and free post is greater that two then redirect to payment page
     if (!PremiumResult.premium && tutorPostCount >= 2) {
