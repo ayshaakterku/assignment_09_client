@@ -1,15 +1,18 @@
+import { getPaymentInfo } from "@/components/api-access/payment-information";
 import { getTutions } from "@/components/api-access/tutions";
 import { getUser } from "@/components/api-access/users";
 import AdminPageClient from "@/components/dashboard/admin-page-client";
+import type { IPaymented } from "@/components/api-access/payment-information";
 import type { TuitionApplication } from "@/components/type/tution";
 import type { IUser } from "@/components/type/user";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [tuitionsResult, usersResult] = await Promise.allSettled([
+  const [tuitionsResult, usersResult, paymentsResult] = await Promise.allSettled([
     getTutions(),
     getUser(),
+    getPaymentInfo(),
   ]);
 
   const tuitions: TuitionApplication[] =
@@ -30,12 +33,23 @@ export default async function AdminDashboardPage() {
         : "Could not load users from the server."
       : null;
 
+  const payments: IPaymented[] =
+    paymentsResult.status === "fulfilled" ? paymentsResult.value : [];
+  const paymentsError =
+    paymentsResult.status === "rejected"
+      ? paymentsResult.reason instanceof Error
+        ? paymentsResult.reason.message
+        : "Could not load transactions from the server."
+      : null;
+
   return (
     <AdminPageClient
       tuitions={tuitions}
       tuitionsError={tuitionsError}
       users={users}
       usersError={usersError}
+      payments={payments}
+      paymentsError={paymentsError}
     />
   );
 }

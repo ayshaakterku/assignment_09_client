@@ -24,6 +24,7 @@ import {
   deleteSavedTution,
   type ISavedTuitionApplication,
 } from "@/components/api-access/saved";
+import type { IPaymented } from "@/components/api-access/payment-information";
 import type { StudentTuitionApplication } from "@/components/type/application";
 import {
   Table,
@@ -123,22 +124,24 @@ function QuickAction({
 
 export default function StudentDashboard({
   user,
-  plan,
   onSignOut,
   preview,
   applications,
   applicationsError,
   savedTuitions: initialSavedTuitions,
   savedError,
+  payments,
+  paymentsError,
 }: {
   user: DashboardUser;
-  plan?: string | null;
   onSignOut: () => void;
   preview?: PreviewControls | null;
   applications: StudentTuitionApplication[];
   applicationsError?: string | null;
   savedTuitions: ISavedTuitionApplication[];
   savedError?: string | null;
+  payments: IPaymented[];
+  paymentsError?: string | null;
 }) {
   const [active, setActive] = useState("overview");
   const [savedItems, setSavedItems] =
@@ -168,8 +171,14 @@ export default function StudentDashboard({
     }
   };
 
-  const planLabel = (plan || "free").toLowerCase();
-  const isPro = planLabel !== "free";
+  // The plan card reflects the server's payment records: a paid checkout whose
+  // `userId` matches this account's id means Pro, anything else is Free.
+  const isPro = payments.some(
+    (payment) =>
+      payment.userId === user.id &&
+      (payment.payment_status || payment.status) === "paid"
+  );
+  const planLabel = isPro ? "pro" : "free";
   const acceptedCount = applications.filter(
     (application) => application.status === "accepted"
   ).length;
@@ -190,6 +199,7 @@ export default function StudentDashboard({
       onNavigate={setActive}
       onSignOut={onSignOut}
       preview={preview}
+      payments={payments}
     >
       {active === "overview" ? (
         <>
@@ -230,9 +240,11 @@ export default function StudentDashboard({
               label="Current Plan"
               value={planLabel.toUpperCase()}
               hint={
-                isPro
-                  ? "Priority perks are active on your account."
-                  : "Upgrade to Pro for priority perks."
+                paymentsError
+                  ? "Plan status could not be verified right now."
+                  : isPro
+                    ? "Priority perks are active on your account."
+                    : "Upgrade to Pro for priority perks."
               }
               icon={Crown}
               tone="fuchsia"

@@ -1,5 +1,6 @@
 "use client";
 
+import type { IPaymented } from "@/components/api-access/payment-information";
 import type { StudentTuitionApplication } from "@/components/type/application";
 import type { TuitionApplication } from "@/components/type/tution";
 
@@ -14,11 +15,15 @@ export default function TutorPageClient({
   tuitionsError,
   applications,
   applicationsError,
+  payments,
+  paymentsError,
 }: {
   tuitions: TuitionApplication[];
   tuitionsError?: string | null;
   applications: StudentTuitionApplication[];
   applicationsError?: string | null;
+  payments: IPaymented[];
+  paymentsError?: string | null;
 }) {
   const { user, isReady, signOut, preview } = useDashboardSession("tutor");
 
@@ -29,13 +34,14 @@ export default function TutorPageClient({
   return (
     <TutorDashboard
       user={user}
-      plan={user.plan}
       onSignOut={signOut}
       preview={preview}
       tuitions={tuitions}
       tuitionsError={tuitionsError}
       applications={applications}
       applicationsError={applicationsError}
+      payments={payments}
+      paymentsError={paymentsError}
     />
   );
 }

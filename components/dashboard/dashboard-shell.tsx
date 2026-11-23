@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LogOut, Menu, X } from "lucide-react";
 
 import ThemeToggle from "@/components/ThemeToggle";
+import type { IPaymented } from "@/components/api-access/payment-information";
 import { cn } from "@/lib/utils";
 
 import { RoleBadge, UserAvatar } from "./ui";
@@ -30,6 +31,7 @@ export default function DashboardShell({
   onNavigate,
   onSignOut,
   preview,
+  payments = [],
   children,
 }: {
   role: DashboardRole;
@@ -40,9 +42,17 @@ export default function DashboardShell({
   onNavigate: (id: string) => void;
   onSignOut: () => void;
   preview?: PreviewControls | null;
+  /** Server payment records; a paid entry for this user unlocks the Pro tag. */
+  payments?: IPaymented[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+
+  const isPro = payments.some(
+    (payment) =>
+      payment.userId === user.id &&
+      (payment.payment_status || payment.status) === "paid"
+  );
 
   const mainItems = navItems.filter((item) => item.group === "main");
   const prefItems = navItems.filter((item) => item.group === "preferences");
@@ -135,11 +145,21 @@ export default function DashboardShell({
               </p>
               <div className="mt-1 flex items-center gap-1.5">
                 <RoleBadge role={role} />
-                {role === "student" ? null : (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider text-amber-700 uppercase dark:bg-amber-500/15 dark:text-amber-300">
-                    Pro
-                  </span>
-                )}
+                <span
+                  title={
+                    isPro
+                      ? "Pro plan active"
+                      : "Free plan — upgrade to unlock Pro perks"
+                  }
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase",
+                    isPro
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {isPro ? "Pro" : "Free"}
+                </span>
               </div>
             </div>
           </div>

@@ -49,15 +49,14 @@ export async function POST() {
       ],
 
       mode: "payment",
+      // Additional information send with transaction
       customer_email: session?.user.email,
-      
-      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pricing`,
-
       metadata: {
         userId: session.user.id,
-        userRole: userRole,
+        userRole: session.user.role,
       },
+      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing`,
 
       integration_identifier: "Mentor_Lagbe_001",
     })

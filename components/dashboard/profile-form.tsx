@@ -23,15 +23,16 @@ export default function ProfileForm({ user }: { user: DashboardUser }) {
       <PageHeading
         title="Update Profile"
         subtitle="Keep your personal details up to date so tutors and students can reach you."
-        action={
-          <Link
-            href="/dashboard/profile"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-purple-700 hover:underline dark:text-purple-300"
-          >
-            Open full profile page
-            <ArrowRight className="size-4" />
-          </Link>
-        }
+        // this is duplcated form
+        // action={
+        //   <Link
+        //     href="/dashboard/profile"
+        //     className="inline-flex items-center gap-1.5 text-sm font-semibold text-purple-700 hover:underline dark:text-purple-300"
+        //   >
+        //     Open full profile page
+        //     <ArrowRight className="size-4" />
+        //   </Link>
+        // }
       />
 
       <div className="mt-6">

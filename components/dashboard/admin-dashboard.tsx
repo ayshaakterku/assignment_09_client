@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 
+import type { IPaymented } from "@/components/api-access/payment-information";
 import { updateTutionApprovalStatus } from "@/components/api-update/tution-update";
 import type { TuitionApplication } from "@/components/type/tution";
 import type { IUser } from "@/components/type/user";
@@ -56,38 +57,36 @@ const navItems: DashboardNavItem[] = [
   { id: "profile", label: "Update Profile", icon: Settings, group: "preferences" },
 ];
 
-const transactions = [
-  {
-    id: "txn_mock_002",
-    name: "Admin User",
-    email: "admin@mentorlagbe.com",
-    role: "admin",
-    plan: "Pro Tutor Plan",
-    amount: "$15",
-    status: "paid",
-    date: "Oct 31, 2026",
-  },
-  {
-    id: "txn_mock_001",
-    name: "Karim Rahman",
-    email: "tutor@mentorlagbe.com",
-    role: "tutor",
-    plan: "Pro Tutor Plan",
-    amount: "$15",
-    status: "paid",
-    date: "Oct 21, 2026",
-  },
-  {
-    id: "txn_mock_000",
-    name: "Sadia Islam",
-    email: "sadia@student.com",
-    role: "student",
-    plan: "Pro Student Plan",
-    amount: "$8",
-    status: "paid",
-    date: "Oct 18, 2026",
-  },
-];
+type TransactionRow = {
+  /** Mongo `_id`; unique even when a session was stored twice. */
+  key: string;
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  plan: string;
+  amount: string;
+  status: string;
+  date: string;
+  trxId: string;
+};
+
+/** Stripe reports `amount_total` in the smallest currency unit (cents). */
+function formatAmount(amountTotal?: number) {
+  if (typeof amountTotal !== "number" || Number.isNaN(amountTotal)) return "—";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amountTotal / 100);
+}
+
+function planLabel(role?: string | null) {
+  const normalized = normalizeRole(role);
+  if (normalized === "tutor") return "Pro Tutor Plan";
+  if (normalized === "student") return "Pro Student Plan";
+  return "Pro Plan";
+}
 
 type ModerationTab = "pending" | "approved" | "rejected" | "all";
 
@@ -169,7 +168,7 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-export default function AdminDashboard({
+export default  function AdminDashboard({
   user,
   onSignOut,
   preview,
@@ -177,6 +176,8 @@ export default function AdminDashboard({
   tuitionsError,
   users,
   usersError,
+  payments,
+  paymentsError,
 }: {
   user: DashboardUser;
   onSignOut: () => void;
@@ -185,11 +186,105 @@ export default function AdminDashboard({
   tuitionsError?: string | null;
   users: IUser[];
   usersError?: string | null;
+  payments: IPaymented[];
+  paymentsError?: string | null;
 }) {
   const [active, setActive] = useState("tuitions");
   const [statusFilter, setStatusFilter] = useState<ModerationTab>("pending");
   const [items, setItems] = useState<TuitionApplication[]>(tuitions);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Newest payments first, joined with the user collection for names.
+  const usersById = new Map(users.map((account) => [account._id, account]));
+
+  // One row per checkout session — the collection can hold duplicates from
+  // before the server started rejecting re-verified sessions.
+  const uniquePayments = [
+    ...payments
+      .reduce((bySession, payment) => {
+        const key = payment.sessionId || payment._id;
+        const kept = bySession.get(key);
+
+        if (
+          !kept ||
+          new Date(payment.payment_date).getTime() >
+            new Date(kept.payment_date).getTime()
+        ) {
+          bySession.set(key, payment);
+        }
+
+        return bySession;
+      }, new Map<string, IPaymented>())
+      .values(),
+  ].sort(
+    (a, b) =>
+      new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+  );
+
+  const transactions: TransactionRow[] = uniquePayments.map((payment) => {
+    const payer = usersById.get(payment.userId);
+    const role = payment.userRole || payer?.role || null;
+
+    return {
+      key: payment._id,
+      id: payment.sessionId || payment._id,
+      name:
+        payer?.name ||
+        payment.customer_email?.split("@")[0] ||
+        "Unknown user",
+      email: payment.customer_email || payer?.email || "—",
+      role: role || "student",
+      plan: planLabel(role),
+      amount: formatAmount(payment.amount_total),
+      status: payment.payment_status || payment.status || "paid",
+      date: formatDate(payment.payment_date),
+      trxId: payment.payment_intent,
+    };
+  });
+
+  const knownAmounts = uniquePayments.filter(
+    (payment) => typeof payment.amount_total === "number"
+  );
+  const totalRevenue = knownAmounts.reduce(
+    (sum, payment) => sum + (payment.amount_total || 0),
+    0
+  );
+
+  const tutorCount = users.filter(
+    (account) => normalizeRole(account.role) === "tutor"
+  ).length;
+  const studentCount = users.filter(
+    (account) => normalizeRole(account.role) === "student"
+  ).length;
+  const paidCount = uniquePayments.filter(
+    (payment) => (payment.payment_status || payment.status) === "paid"
+  ).length;
+  const missingAmountCount = uniquePayments.length - knownAmounts.length;
+
+  // A user counts as Pro when the server has a paid checkout for their `_id`
+  // (payment.userId matches user._id). The `plan` field on the user document
+  // is not used for this column.
+  const paidUserIds = new Set(
+    payments
+      .filter((payment) => (payment.payment_status || payment.status) === "paid")
+      .map((payment) => payment.userId)
+      .filter(Boolean)
+  );
+
+  const revenueHint = `${paidCount} paid ${
+    paidCount === 1 ? "checkout" : "checkouts"
+  }${
+    missingAmountCount > 0
+      ? ` · ${missingAmountCount} with no recorded amount`
+      : ""
+  }.`;
+
+  const overviewError = [usersError, paymentsError].filter(Boolean).join(" · ");
+
+  const openModeration = (tab: ModerationTab) => {
+    setStatusFilter(tab);
+    setActive("tuitions");
+  };
 
   const counts: Record<ModerationTab, number> = {
     pending: items.filter(
@@ -265,6 +360,7 @@ export default function AdminDashboard({
       onNavigate={setActive}
       onSignOut={onSignOut}
       preview={preview}
+      payments={payments}
     >
       {active === "tuitions" ? (
         <>
@@ -475,76 +571,148 @@ export default function AdminDashboard({
           <PageHeading
             title="Platform Overview"
             subtitle="A quick pulse on users, tuitions and subscription revenue."
+            action={
+              <button
+                type="button"
+                onClick={() => openModeration("pending")}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-purple-700"
+              >
+                <BookOpen className="size-3.5" />
+                Review queue ({counts.pending})
+              </button>
+            }
           />
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Total Users"
-              value="248"
+              value={users.length.toLocaleString("en-US")}
               hint="Registered students, tutors and admins."
               icon={Users}
               tone="purple"
             />
             <StatCard
               label="Tutors"
-              value="96"
-              hint="Approved tutors on the platform."
+              value={tutorCount.toLocaleString("en-US")}
+              hint="Tutor accounts on the platform."
               icon={ShieldCheck}
               tone="blue"
             />
             <StatCard
               label="Students"
-              value="148"
-              hint="Students actively looking for tuitions."
+              value={studentCount.toLocaleString("en-US")}
+              hint="Student accounts looking for tuitions."
               icon={BookOpen}
               tone="fuchsia"
             />
             <StatCard
               label="Revenue"
-              value="$1,240"
-              hint="Total Pro plan revenue this quarter."
+              value={formatAmount(totalRevenue)}
+              hint={revenueHint}
               icon={Wallet}
               tone="emerald"
             />
           </div>
 
-          <Panel className="mt-6 overflow-hidden">
-            <PanelHeader
-              title="Recent transactions"
-              description="Latest Pro subscription upgrades."
-              action={
+          {overviewError ? (
+            <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+              Some figures may be incomplete — {overviewError}
+            </p>
+          ) : null}
+
+          <div className="mt-6 grid gap-6 xl:grid-cols-3">
+            <Panel className="overflow-hidden xl:col-span-2">
+              <PanelHeader
+                title="Recent transactions"
+                description="Latest Pro subscription upgrades."
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setActive("transactions")}
+                    className="text-xs font-semibold text-purple-700 hover:underline dark:text-purple-300"
+                  >
+                    View all
+                  </button>
+                }
+              />
+              <div className="divide-y divide-border">
+                {transactions.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-xs text-muted-foreground">
+                    No transactions recorded yet.
+                  </p>
+                ) : (
+                  transactions.slice(0, 3).map((transaction) => (
+                    <div
+                      key={transaction.key}
+                      className="flex flex-wrap items-center gap-3 px-5 py-3.5"
+                    >
+                      <UserAvatar name={transaction.name} className="size-9" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {transaction.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {transaction.plan}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-foreground">
+                        {transaction.amount}
+                      </span>
+                      <StatusBadge status={transaction.status} />
+                    </div>
+                  ))
+                )}
+              </div>
+            </Panel>
+
+            <Panel className="overflow-hidden">
+              <PanelHeader
+                title="Tuition moderation"
+                description="Where the submitted listings stand."
+              />
+              <div className="divide-y divide-border">
+                {moderationTabs
+                  .filter((tab) => tab.id !== "all")
+                  .map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => openModeration(tab.id)}
+                      className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-muted/50"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <span
+                          className={cn(
+                            "size-2 rounded-full",
+                            tab.id === "pending"
+                              ? "bg-amber-500"
+                              : tab.id === "approved"
+                                ? "bg-emerald-500"
+                                : "bg-red-500"
+                          )}
+                        />
+                        {tab.label}
+                      </span>
+                      <span className="text-sm font-bold tabular-nums text-foreground">
+                        {counts[tab.id]}
+                      </span>
+                    </button>
+                  ))}
                 <button
                   type="button"
-                  onClick={() => setActive("transactions")}
-                  className="text-xs font-semibold text-purple-700 hover:underline dark:text-purple-300"
+                  onClick={() => openModeration("all")}
+                  className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-muted/50"
                 >
-                  View all
-                </button>
-              }
-            />
-            <div className="divide-y divide-border">
-              {transactions.slice(0, 3).map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex flex-wrap items-center gap-3 px-5 py-3.5"
-                >
-                  <UserAvatar name={transaction.name} className="size-9" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {transaction.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {transaction.plan}
-                    </p>
-                  </div>
-                  <span className="text-sm font-bold text-foreground">
-                    {transaction.amount}
+                  <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                    All tuitions
                   </span>
-                  <StatusBadge status={transaction.status} />
-                </div>
-              ))}
-            </div>
-          </Panel>
+                  <span className="text-sm font-bold tabular-nums text-foreground">
+                    {counts.all}
+                  </span>
+                </button>
+              </div>
+            </Panel>
+          </div>
         </>
       ) : null}
 
@@ -559,6 +727,12 @@ export default function AdminDashboard({
               </span>
             }
           />
+
+          {paymentsError ? (
+            <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+              Plan column may be inaccurate — {paymentsError}
+            </p>
+          ) : null}
 
           {usersError ? (
             <Panel className="mt-6">
@@ -604,8 +778,8 @@ export default function AdminDashboard({
                 </TableHeader>
                 <TableBody>
                   {sortedUsers.map((account) => {
-                    const plan = (account.plan || "free").toLowerCase();
-                    const isPaid = plan !== "free";
+                    const isPaid = paidUserIds.has(account._id);
+                    const plan = isPaid ? "pro" : "free";
 
                     return (
                       <TableRow key={account._id}>
@@ -688,68 +862,104 @@ export default function AdminDashboard({
           <PageHeading
             title="Transaction History"
             subtitle="Audit trail of Pro subscription upgrades processed through checkout."
+            action={
+              <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                {transactions.length}{" "}
+                {transactions.length === 1 ? "transaction" : "transactions"}
+              </span>
+            }
           />
 
-          <Panel className="mt-6 overflow-hidden">
-            <Table className="min-w-[920px]">
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="px-5">User</TableHead>
-                  <TableHead className="px-5">Role</TableHead>
-                  <TableHead className="px-5">Plan Purchased</TableHead>
-                  <TableHead className="px-5">Amount</TableHead>
-                  <TableHead className="px-5">Transaction ID</TableHead>
-                  <TableHead className="px-5">Status</TableHead>
-                  <TableHead className="px-5">Paid Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar
-                          name={transaction.name}
-                          className="size-9 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-foreground">
-                            {transaction.name}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {transaction.email}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <RoleBadge role={normalizeRole(transaction.role)} />
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                        <Crown className="size-4 text-amber-500" />
-                        {transaction.plan}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4 font-bold text-foreground">
-                      {transaction.amount}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <code className="rounded-md bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
-                        {transaction.id}
-                      </code>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <StatusBadge status={transaction.status} />
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-xs text-muted-foreground">
-                      {transaction.date}
-                    </TableCell>
+          {paymentsError ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                  <X className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  Could not load transactions
+                </p>
+                <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+                  {paymentsError}
+                </p>
+              </div>
+            </Panel>
+          ) : transactions.length === 0 ? (
+            <Panel className="mt-6">
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                  <Wallet className="size-5" />
+                </span>
+                <p className="mt-4 text-sm font-bold text-foreground">
+                  No transactions yet
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                  Completed Pro subscription payments will appear here.
+                </p>
+              </div>
+            </Panel>
+          ) : (
+            <Panel className="mt-6 overflow-hidden">
+              <Table className="min-w-[920px]">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="px-5">User</TableHead>
+                    <TableHead className="px-5">Role</TableHead>
+                    <TableHead className="px-5">Plan Purchased</TableHead>
+                    <TableHead className="px-5">Amount</TableHead>
+                    <TableHead className="px-5">Transaction ID</TableHead>
+                    <TableHead className="px-5">Status</TableHead>
+                    <TableHead className="px-5">Paid Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Panel>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((transaction) => (
+                    <TableRow key={transaction.key}>
+                      <TableCell className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar
+                            name={transaction.name}
+                            className="size-9 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-foreground">
+                              {transaction.name}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {transaction.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <RoleBadge role={normalizeRole(transaction.role)} />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                          <Crown className="size-4 text-amber-500" />
+                          {transaction.plan}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 font-bold text-foreground">
+                        {transaction.amount}
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <code className="rounded-md bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
+                          {transaction.trxId}
+                        </code>
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <StatusBadge status={transaction.status} />
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-xs text-muted-foreground">
+                        {transaction.date}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Panel>
+          )}
         </>
       ) : null}
 

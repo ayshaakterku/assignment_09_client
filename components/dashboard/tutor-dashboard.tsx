@@ -31,6 +31,7 @@ import {
   type TutionUpdate,
 } from "@/components/api-update/tution-update";
 import { updateTutorActiveStatus } from "@/components/api-update/tutor-update";
+import type { IPaymented } from "@/components/api-access/payment-information";
 import type { StudentTuitionApplication } from "@/components/type/application";
 import type { TuitionApplication } from "@/components/type/tution";
 import {
@@ -136,22 +137,24 @@ function formatDate(value: string) {
 
 export default function TutorDashboard({
   user,
-  plan,
   onSignOut,
   preview,
   tuitions,
   tuitionsError,
   applications: initialApplications,
   applicationsError,
+  payments,
+  paymentsError,
 }: {
   user: DashboardUser;
-  plan?: string | null;
   onSignOut: () => void;
   preview?: PreviewControls | null;
   tuitions: TuitionApplication[];
   tuitionsError?: string | null;
   applications: StudentTuitionApplication[];
   applicationsError?: string | null;
+  payments: IPaymented[];
+  paymentsError?: string | null;
 }) {
   const [active, setActive] = useState("overview");
   const [applications, setApplications] =
@@ -164,8 +167,14 @@ export default function TutorDashboard({
   const [deleting, setDeleting] = useState<TuitionApplication | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const planLabel = (plan || "free").toLowerCase();
-  const isPro = planLabel !== "free";
+  // The plan card and the membership banner reflect the server's payment
+  // records: a paid checkout whose `userId` matches this account's id is Pro.
+  const isPro = payments.some(
+    (payment) =>
+      payment.userId === user.id &&
+      (payment.payment_status || payment.status) === "paid"
+  );
+  const planLabel = isPro ? "pro" : "free";
   const activeApproved = items.filter(
     (tuition) =>
       tuition.isActive &&
@@ -323,6 +332,7 @@ export default function TutorDashboard({
       onNavigate={setActive}
       onSignOut={onSignOut}
       preview={preview}
+      payments={payments}
     >
       {active === "overview" ? (
         <>
@@ -362,9 +372,11 @@ export default function TutorDashboard({
               label="Current Plan"
               value={planLabel.toUpperCase()}
               hint={
-                isPro
-                  ? "Priority listing in searches"
-                  : "Upgrade to Pro for priority listing"
+                paymentsError
+                  ? "Plan status could not be verified right now."
+                  : isPro
+                    ? "Priority listing in searches"
+                    : "Upgrade to Pro for priority listing"
               }
               icon={Crown}
               tone="amber"
@@ -430,12 +442,18 @@ export default function TutorDashboard({
             </span>
             <div>
               <p className="text-sm font-bold text-foreground">
-                {isPro ? "Pro Member Active" : "Free Plan"}
+                {paymentsError
+                  ? "Plan Unavailable"
+                  : isPro
+                    ? "Pro Member Active"
+                    : "Free Plan"}
               </p>
               <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                {isPro
-                  ? "You have unlimited tuition postings and a verified tutor badge enabled across the platform."
-                  : "Upgrade to Pro for unlimited tuition postings, a verified tutor badge, and priority listing."}
+                {paymentsError
+                  ? "We could not verify your subscription right now. Refresh the page to try again."
+                  : isPro
+                    ? "You have unlimited tuition postings and a verified tutor badge enabled across the platform."
+                    : "Upgrade to Pro for unlimited tuition postings, a verified tutor badge, and priority listing."}
               </p>
             </div>
           </div>

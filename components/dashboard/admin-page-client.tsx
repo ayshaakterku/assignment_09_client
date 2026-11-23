@@ -5,6 +5,7 @@ import {
   DashboardLoading,
   useDashboardSession,
 } from "./use-dashboard-session";
+import type { IPaymented } from "@/components/api-access/payment-information";
 import type { TuitionApplication } from "@/components/type/tution";
 import type { IUser } from "@/components/type/user";
 
@@ -13,11 +14,15 @@ export default function AdminPageClient({
   tuitionsError,
   users,
   usersError,
+  payments,
+  paymentsError,
 }: {
   tuitions: TuitionApplication[];
   tuitionsError?: string | null;
   users: IUser[];
   usersError?: string | null;
+  payments: IPaymented[];
+  paymentsError?: string | null;
 }) {
   const { user, isReady, signOut, preview } = useDashboardSession("admin");
 
@@ -34,6 +39,8 @@ export default function AdminPageClient({
       tuitionsError={tuitionsError}
       users={users}
       usersError={usersError}
+      payments={payments}
+      paymentsError={paymentsError}
     />
   );
 }
